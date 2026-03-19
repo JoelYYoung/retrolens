@@ -255,9 +255,95 @@ def build_anthropic_usage(openai_usage: Optional[Dict]) -> Dict:
         "cache_read_input_tokens": cached_tokens
     }
 
+
+def estimate_token_count(text: str) -> int:
+    """
+    Rough token count estimation (approximately 4 chars per token for English)
+    This is used for the count_tokens endpoint when we can't use the actual tokenizer
+    """
+    if not text:
+        return 0
+    # Rough estimation: ~4 characters per token for English text
+    # For code/JSON, it's closer to 3 characters per token
+    return max(1, len(text) // 4)
+
+
+def count_message_tokens(messages: List[Dict], system: Any = None, tools: List[Dict] = None) -> int:
+    """
+    Estimate total tokens for a message request
+    """
+    total = 0
+    
+    # Count system prompt
+    if system:
+        if isinstance(system, str):
+            total += estimate_token_count(system)
+        elif isinstance(system, list):
+            for item in system:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    total += estimate_token_count(item.get("text", ""))
+    
+    # Count messages
+    for msg in messages:
+        content = msg.get("content", "")
+        if isinstance(content, str):
+            total += estimate_token_count(content)
+        elif isinstance(content, list):
+            for item in content:
+                if isinstance(item, dict):
+                    if item.get("type") == "text":
+                        total += estimate_token_count(item.get("text", ""))
+                    elif item.get("type") == "tool_result":
+                        result_content = item.get("content", "")
+                        if isinstance(result_content, str):
+                            total += estimate_token_count(result_content)
+                        elif isinstance(result_content, list):
+                            for part in result_content:
+                                if isinstance(part, dict) and part.get("type") == "text":
+                                    total += estimate_token_count(part.get("text", ""))
+                    elif item.get("type") == "tool_use":
+                        total += estimate_token_count(json.dumps(item.get("input", {})))
+        # Add overhead for role and structure
+        total += 4
+    
+    # Count tools
+    if tools:
+        for tool in tools:
+            total += estimate_token_count(tool.get("name", ""))
+            total += estimate_token_count(tool.get("description", ""))
+            total += estimate_token_count(json.dumps(tool.get("input_schema", {})))
+    
+    return total
+
+
 # =============================================================================
 # Anthropic API Proxy Endpoints
 # =============================================================================
+
+@app.post("/v1/messages/count_tokens")
+async def count_tokens(request: Request):
+    """
+    Anthropic token counting endpoint
+    Used by Claude Code to estimate token usage before sending requests
+    
+    Returns an estimation since we don't have access to the actual Anthropic tokenizer
+    """
+    body = await request.json()
+    
+    messages = body.get("messages", [])
+    system = body.get("system")
+    tools = body.get("tools", [])
+    model = body.get("model", "unknown")
+    
+    # Estimate token count
+    input_tokens = count_message_tokens(messages, system, tools)
+    
+    print(f"[{datetime.now().isoformat()}] Token count request: model={model}, estimated={input_tokens} tokens")
+    
+    return {
+        "input_tokens": input_tokens
+    }
+
 
 @app.post("/v1/messages")
 async def anthropic_to_openai(request: Request):
@@ -575,15 +661,40 @@ async def anthropic_to_openai(request: Request):
                             # Send message_stop
                             yield f"event: message_stop\ndata: {json.dumps({'type': 'message_stop'})}\n\n"
                 
+                except httpx.RemoteProtocolError as e:
+                    # Connection was closed by peer (e.g., client cancelled request)
+                    # This is common when Claude Code cancels a request mid-stream
+                    print(f"  -> Stream connection closed by peer (request likely cancelled)")
+                    # Don't send error event - the client is already gone
+                    # Just ensure we have a valid stop_reason for storage
+                    if not has_finished:
+                        stop_reason = "end_turn"
+                
                 except Exception as e:
-                    print(f"  -> Streaming error: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    error_event = {
-                        "type": "error",
-                        "error": {"type": "api_error", "message": str(e)}
-                    }
-                    yield f"event: error\ndata: {json.dumps(error_event)}\n\n"
+                    error_type = type(e).__name__
+                    error_msg = str(e)
+                    
+                    # Check if this is a connection-related error
+                    is_connection_error = any(x in error_msg.lower() for x in [
+                        'connection', 'closed', 'reset', 'timeout', 'peer'
+                    ])
+                    
+                    if is_connection_error:
+                        print(f"  -> Stream connection error ({error_type}): {error_msg}")
+                    else:
+                        print(f"  -> Streaming error ({error_type}): {error_msg}")
+                        import traceback
+                        traceback.print_exc()
+                        # Only send error event for non-connection errors
+                        error_event = {
+                            "type": "error",
+                            "error": {"type": "api_error", "message": error_msg}
+                        }
+                        yield f"event: error\ndata: {json.dumps(error_event)}\n\n"
+                    
+                    # Ensure we have a valid stop_reason for storage
+                    if not has_finished:
+                        stop_reason = "end_turn"
                 
                 # Build complete response for storage
                 content_blocks = []
