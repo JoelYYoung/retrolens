@@ -1,31 +1,17 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-.venv/
-venv/
-ENV/
+# Exclude everything
+*
 
-# Environment
-.env
+# Include specific files and directories
+!.gitignore
+!README.md
+!src/
+!docs/
+!tools/
+!LICENSE
+!pyproject.toml
+!requirements.txt
+!uv.lock
+!.env.example
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-.DS_Store
-
-# Logs
-logs/
-*.log
-
-# Build
-dist/
-build/
-*.egg-info/
-
-# Prompts
-AGENTS.md
+# Exclude build artifacts
+**/__pycache__/
