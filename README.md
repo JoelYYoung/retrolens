@@ -1,4 +1,4 @@
-# FlowCraft Distill 🔬
+# RetroLens 🔬
 
 **Learn from your AI agent conversations — extract workflows, generate executable agents, accumulate lessons learned.**
 
@@ -9,7 +9,7 @@
 
 Every day you use AI agents like VS Code Copilot, Claude Code, or Cursor to write code. These conversation logs contain reusable workflows and hard-won lessons — but they're locked inside log files, inaccessible for reuse.
 
-**FlowCraft Distill** provides a lightweight CLI + a SKILL.md guide that enables any general-purpose agent to:
+**RetroLens** provides a lightweight CLI + a SKILL.md guide that enables any general-purpose agent to:
 
 1. 📂 **Scan** logs → discover conversation sessions
 2. 🔍 **Browse** sessions → drill down like a debugger (overview → turn → tool call)
@@ -35,8 +35,8 @@ pip install -e .
 
 Verify installation:
 ```bash
-flowcraft-distill --version    # 0.4.0
-flowcraft-distill --skill-path # prints SKILL.md path
+retrolens --version    # 0.4.0
+retrolens --skill-path # prints SKILL.md path
 ```
 
 ## Quick Start: 5-Minute Walkthrough
@@ -44,7 +44,7 @@ flowcraft-distill --skill-path # prints SKILL.md path
 ### 1. Scan your VS Code conversation logs
 
 ```bash
-flowcraft-distill scan
+retrolens scan
 ```
 ```
 Found 5 session(s):
@@ -58,7 +58,7 @@ Found 5 session(s):
 ### 2. Browse a session
 
 ```bash
-flowcraft-distill read fb48c  # prefix matching works
+retrolens read fb48c  # prefix matching works
 ```
 ```
 === Session: fb48c98d-523 ===
@@ -74,27 +74,27 @@ Total Turns: 9
 ### 3. Drill into a specific turn
 
 ```bash
-flowcraft-distill read fb48c --turn 5        # turn 5 details
-flowcraft-distill read fb48c -t 5 --tool 0   # first tool call in turn 5
+retrolens read fb48c --turn 5        # turn 5 details
+retrolens read fb48c -t 5 --tool 0   # first tool call in turn 5
 ```
 
 ### 4. Extract workflow digest
 
 ```bash
-flowcraft-distill extract fb48c --json   # structured SessionDigest output
+retrolens extract fb48c --json   # structured SessionDigest output
 ```
 
 ### 5. Reflect on lessons learned
 
 ```bash
-flowcraft-distill reflect fb48c --focus errors --json   # focus on error analysis
+retrolens reflect fb48c --focus errors --json   # focus on error analysis
 ```
 
 ---
 
 ## ⭐ Core Feature: Refine Workflows with SKILL
 
-This is FlowCraft Distill's most important capability. It works as a **Skill** — a standardized document that guides any general-purpose agent through analyzing conversation logs and distilling reusable workflows.
+This is RetroLens's most important capability. It works as a **Skill** — a standardized document that guides any general-purpose agent through analyzing conversation logs and distilling reusable workflows.
 
 ### How It Works
 
@@ -105,13 +105,13 @@ This is FlowCraft Distill's most important capability. It works as a **Skill** �
 │  Reads SKILL.md → knows how to use CLI tools │
 │  Calls CLI → gets structured log data        │
 │  Analyzes data → uses its own LLM reasoning  │
-│  Writes files → .flowcraft/LESSONS.md etc.   │
+│  Writes files → .retrolens/LESSONS.md etc.   │
 └──────────────────────────────────────────────┘
          ▲                    │
     SKILL.md guidance     CLI calls
          │                    ▼
 ┌──────────────────────────────────────────────┐
-│  flowcraft-distill CLI (lightweight)         │
+│  retrolens CLI (lightweight)         │
 │                                              │
 │  scan    → discover log sessions             │
 │  read    → traverse session data             │
@@ -125,7 +125,7 @@ This is FlowCraft Distill's most important capability. It works as a **Skill** �
 ┌──────────────────────────────────────────────┐
 │  Log Files                                   │
 │  VS Code Copilot: JSONL (incremental state)  │
-│  FlowCraft Native: JSON                      │
+│  RetroLens Native: JSON                      │
 └──────────────────────────────────────────────┘
 ```
 
@@ -135,10 +135,10 @@ The core use case. Full pipeline:
 
 ```bash
 # Step 1: Find the target session
-flowcraft-distill scan --json
+retrolens scan --json
 
 # Step 2: Get structured digest
-flowcraft-distill extract <ID> --json
+retrolens extract <ID> --json
 # Output includes: user messages, tools used, files touched, commands run per turn
 
 # Step 3: Agent analyzes the digest and identifies workflow phases
@@ -149,11 +149,11 @@ flowcraft-distill extract <ID> --json
 #   Documentation     → writing .md files
 
 # Step 4: Agent writes analysis as YAML DSL
-#   → .flowcraft/my-workflow.workflow.yaml
+#   → .retrolens/my-workflow.workflow.yaml
 
 # Step 5: Generate LangGraph code
-flowcraft-distill extract --from-yaml .flowcraft/my-workflow.workflow.yaml --langgraph
-# → .flowcraft/my_workflow_agent.py
+retrolens extract --from-yaml .retrolens/my-workflow.workflow.yaml --langgraph
+# → .retrolens/my_workflow_agent.py
 ```
 
 Generated LangGraph code includes:
@@ -168,7 +168,7 @@ Generated LangGraph code includes:
 
 ```bash
 # Get reflection digest (with analysis hints)
-flowcraft-distill reflect <ID> --focus errors --json
+retrolens reflect <ID> --focus errors --json
 
 # Agent analyzes across 5 dimensions:
 #   🔴 Errors & Fixes — tool call failures, user corrections
@@ -178,30 +178,30 @@ flowcraft-distill reflect <ID> --focus errors --json
 #   📋 Agent Directives — explicit rules stated by the user
 
 # Agent writes results to:
-#   → .flowcraft/LESSONS.md     (lessons learned)
+#   → .retrolens/LESSONS.md     (lessons learned)
 #   → AGENTS.md / CLAUDE.md     (persistent agent directives)
 ```
 
 ### Workflow C: Navigate Logs Like a Debugger
 
 ```bash
-flowcraft-distill read <ID>               # overview of all turns
-flowcraft-distill read <ID> --turn 3      # turn 3 details
-flowcraft-distill read <ID> -t 3 --tool 2 # 3rd tool call in turn 3
-flowcraft-distill read <ID> --turns 1-5   # turns 1-5 comparison
-flowcraft-distill read <ID> --diff 1,5    # diff between turns 1 and 5
+retrolens read <ID>               # overview of all turns
+retrolens read <ID> --turn 3      # turn 3 details
+retrolens read <ID> -t 3 --tool 2 # 3rd tool call in turn 3
+retrolens read <ID> --turns 1-5   # turns 1-5 comparison
+retrolens read <ID> --diff 1,5    # diff between turns 1 and 5
 ```
 
 ### Workflow D: Cross-Session Mining
 
 ```bash
 # Scan all sessions
-flowcraft-distill scan --json
+retrolens scan --json
 
 # For each relevant session: extract + reflect
 for id in fb48c a1b2c d3e4f; do
-  flowcraft-distill extract $id --json
-  flowcraft-distill reflect $id --json
+  retrolens extract $id --json
+  retrolens reflect $id --json
 done
 
 # Agent synthesizes findings across multiple sessions into consolidated lessons
@@ -254,18 +254,18 @@ workflow:
 
 ## Integrating the SKILL into Your Project
 
-FlowCraft Distill is designed as a **Skill** for any general-purpose agent. Here's how to integrate with each platform:
+RetroLens is designed as a **Skill** for any general-purpose agent. Here's how to integrate with each platform:
 
 ### VS Code Copilot Chat
 
 Add to your project's `AGENTS.md`:
 ```markdown
 ## Conversation Analysis Skill
-Use `flowcraft-distill` CLI to analyze conversation logs and extract workflows.
-- Extract workflow: `flowcraft-distill extract <ID> --json`
-- Reflect on lessons: `flowcraft-distill reflect <ID> --json`
-- Browse session: `flowcraft-distill read <ID> --turn N`
-- Full guide: `flowcraft-distill --skill-path`
+Use `retrolens` CLI to analyze conversation logs and extract workflows.
+- Extract workflow: `retrolens extract <ID> --json`
+- Reflect on lessons: `retrolens reflect <ID> --json`
+- Browse session: `retrolens read <ID> --turn N`
+- Full guide: `retrolens --skill-path`
 Always use `--json` for structured output.
 ```
 
@@ -273,8 +273,8 @@ Always use `--json` for structured output.
 
 Add to `CLAUDE.md`:
 ```markdown
-Use `flowcraft-distill` CLI to extract workflows and lessons from conversation logs.
-Full SKILL.md path: flowcraft-distill --skill-path
+Use `retrolens` CLI to extract workflows and lessons from conversation logs.
+Full SKILL.md path: retrolens --skill-path
 Key commands: scan, read, extract, reflect, show. Always use --json.
 ```
 
@@ -282,7 +282,7 @@ Key commands: scan, read, extract, reflect, show. Always use --json.
 
 Add to `.cursorrules`:
 ```
-When reviewing past sessions, use the flowcraft-distill CLI.
+When reviewing past sessions, use the retrolens CLI.
 Commands: scan, extract, reflect, read, show. Always use --json flag.
 ```
 
@@ -305,14 +305,14 @@ Commands: scan, extract, reflect, read, show. Always use --json flag.
 | Source | Format | Log Location (macOS) |
 |--------|--------|---------------------|
 | VS Code Copilot Chat | JSONL (incremental state machine) | `~/Library/.../Code/User/workspaceStorage/*/GitHub.copilot-chat/debug-logs/*.jsonl` |
-| FlowCraft Native | JSON | `./logs/sessions/` |
+| RetroLens Native | JSON | `./logs/sessions/` |
 
 > More formats (Claude Code, Cursor, etc.) are planned.
 
 ## Project Structure
 
 ```
-src/flowcraft/
+src/retrolens/
 ├── __init__.py                 # Version info
 ├── cli.py                      # Click CLI (5 commands)
 ├── models.py                   # Pydantic v2 data models (16+ models)
@@ -321,7 +321,7 @@ src/flowcraft/
 ├── readers/
 │   ├── __init__.py             # BaseReader ABC + ReaderRegistry
 │   ├── vscode_copilot.py       # VS Code Copilot JSONL parser
-│   └── flowcraft_native.py     # FlowCraft native log reader
+│   └── retrolens_native.py     # RetroLens native log reader
 └── skills/
     ├── SKILL.md                # ⭐ Agent skill document (core artifact)
     └── templates/              # YAML, Python, Markdown templates

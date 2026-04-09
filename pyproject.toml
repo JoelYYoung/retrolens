@@ -1,11 +1,11 @@
 [project]
-name = "flowcraft"
+name = "retrolens"
 version = "0.4.0"
 description = "Debugger-style AI conversation log navigator — let any agent extract lessons and workflows from chat sessions"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
-keywords = ["agent", "workflow", "distill", "lessons", "skill", "cli", "flowcraft"]
+keywords = ["agent", "workflow", "distill", "lessons", "skill", "cli", "retrolens"]
 authors = [
     {name = "Joel Yang"}
 ]
@@ -33,22 +33,22 @@ dev = [
 ]
 
 [project.scripts]
-flowcraft-distill = "flowcraft.cli:main"
+retrolens = "retrolens.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/user/flowcraft"
-Documentation = "https://github.com/user/flowcraft#readme"
-Repository = "https://github.com/user/flowcraft"
+Homepage = "https://github.com/user/retrolens"
+Documentation = "https://github.com/user/retrolens#readme"
+Repository = "https://github.com/user/retrolens"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/flowcraft"]
+packages = ["src/retrolens"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"src/flowcraft/skills" = "flowcraft/skills"
+"src/retrolens/skills" = "retrolens/skills"
 
 [tool.uv]
 dev-dependencies = [

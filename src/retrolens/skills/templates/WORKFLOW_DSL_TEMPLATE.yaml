@@ -1,0 +1,76 @@
+# Workflow DSL Template — Fill this in after analyzing a session with `retrolens extract`
+#
+# Usage:
+#   1. Run: retrolens extract <SESSION_ID> --json
+#   2. Analyze the session digest to identify phases and steps
+#   3. Fill in this template
+#   4. Save to .retrolens/<name>.workflow.yaml
+#   5. Optionally: retrolens extract --from-yaml .retrolens/<name>.workflow.yaml --langgraph
+
+workflow:
+  name: "{workflow_name}"
+  description: "{brief_description}"
+  goal: "{what_the_workflow_achieves}"
+  version: "1.0"
+
+  source:
+    session_id: "{session_id}"
+    title: "{session_title}"
+    extracted_at: "{iso_datetime}"
+
+  # What the workflow needs to start
+  inputs:
+    - "{input_1_description}"
+    - "{input_2_description}"
+
+  # What the workflow produces
+  outputs:
+    - "{output_1_description}"
+    - "{output_2_description}"
+
+  # State variables tracked across phases
+  state_variables:
+    - "{variable_1}"
+    - "{variable_2}"
+
+  # The ordered phases of the workflow
+  phases:
+    - name: "{phase_1_name}"
+      description: "{what_this_phase_does}"
+      entry_condition: "{when_this_phase_starts}"
+      exit_condition: "{when_this_phase_is_done}"
+      source_turns: [1, 2, 3]  # which turns this phase maps to
+      steps:
+        - description: "{step_1_description}"
+          tools: ["{tool_name_1}", "{tool_name_2}"]
+          input: "{what_this_step_needs}"
+          output: "{what_this_step_produces}"
+          # Optional: decision point
+          # decision: "{condition} → {branch_a} | {branch_b}"
+
+    - name: "{phase_2_name}"
+      description: "{what_this_phase_does}"
+      entry_condition: "{depends_on_phase_1_output}"
+      exit_condition: "{when_this_phase_is_done}"
+      source_turns: [4, 5]
+      steps:
+        - description: "{step_description}"
+          tools: ["{tool_name}"]
+
+  # Cross-phase dependencies
+  dependencies:
+    - "Phase 2 requires {output} from Phase 1"
+
+  # Key decision points in the workflow
+  decision_points:
+    - "{turn_N}: {decision_description}"
+
+  # Points where human confirmation is needed
+  human_checkpoints:
+    - "{checkpoint_description}"
+
+  # Aggregated tool usage
+  tools_summary:
+    - name: "{tool_name}"
+      count: 5
+      purpose: "{why_this_tool_is_used}"

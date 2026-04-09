@@ -1,0 +1,96 @@
+workflow:
+  name: "skill-refactoring"
+  description: "Refactor a CLI tool into a lightweight skill for general agents"
+  goal: "Transform a complex CLI tool into a minimal CLI + SKILL.md skill pattern"
+  version: "1.0"
+  source:
+    session_id: "fb48c98d-5233"
+    title: "对话记录与技能提炼功能规划"
+    extracted_at: "2026-04-09T08:00:00"
+  inputs:
+    - "Existing CLI tool codebase"
+    - "Target general agent platform (VS Code, Claude, Cursor)"
+  outputs:
+    - "Minimal CLI with scan/read/extract/reflect commands"
+    - "SKILL.md with workflow guidance for agents"
+    - "Output templates (YAML, MD)"
+  state_variables:
+    - "project_structure"
+    - "existing_commands"
+    - "target_simplifications"
+    - "skill_content"
+  phases:
+    - name: "research"
+      description: "Explore existing codebase and reference patterns"
+      entry_condition: "always"
+      exit_condition: "project structure and patterns understood"
+      source_turns: [1, 2]
+      steps:
+        - description: "Read project structure and existing code"
+          tools: ["read_file", "list_dir", "semantic_search"]
+          input: "Project root directory"
+          output: "Understanding of current architecture"
+        - description: "Study reference patterns (CLI-Anything, agent customization)"
+          tools: ["runSubagent", "read_file"]
+          input: "Reference project paths"
+          output: "Best practices for skill design"
+    - name: "design"
+      description: "Design the simplified CLI and SKILL.md structure"
+      entry_condition: "research complete"
+      exit_condition: "design approved by user"
+      source_turns: [2, 3, 4]
+      steps:
+        - description: "Propose simplified command structure"
+          tools: ["vscode_askQuestions"]
+          decision: "User approves design → implement | User requests changes → iterate"
+        - description: "Define data models and output formats"
+          tools: ["memory"]
+          output: "Models spec and format decisions"
+    - name: "implement"
+      description: "Implement the new CLI from scratch"
+      entry_condition: "design approved"
+      exit_condition: "all commands working"
+      source_turns: [5, 6]
+      steps:
+        - description: "Create data models (Pydantic v2)"
+          tools: ["create_file"]
+        - description: "Implement log readers (format parsers)"
+          tools: ["create_file", "read_file"]
+        - description: "Implement CLI commands (Click)"
+          tools: ["create_file"]
+        - description: "Write SKILL.md with workflow guidance"
+          tools: ["create_file"]
+    - name: "test"
+      description: "Verify all commands work end-to-end"
+      entry_condition: "implementation complete"
+      exit_condition: "all commands produce correct output"
+      source_turns: [6]
+      steps:
+        - description: "Install package and test CLI"
+          tools: ["run_in_terminal"]
+          decision: "Tests pass → done | Errors found → fix in implement phase"
+        - description: "Test with real session data"
+          tools: ["run_in_terminal"]
+  dependencies:
+    - "Design phase needs research output"
+    - "Implementation needs approved design"
+    - "Testing needs installed package"
+  decision_points:
+    - "Turn 2: Simplify CLI or keep complex → User chose simplify"
+    - "Turn 4: Include write command or not → User said remove it"
+  human_checkpoints:
+    - "Design approval before implementation"
+    - "Test verification before shipping"
+  tools_summary:
+    - name: "runSubagent"
+      count: 3
+      purpose: "Parallel exploration of codebase and patterns"
+    - name: "create_file"
+      count: 12
+      purpose: "Create new implementation files"
+    - name: "run_in_terminal"
+      count: 5
+      purpose: "Install and test the package"
+    - name: "read_file"
+      count: 8
+      purpose: "Understand existing code"
