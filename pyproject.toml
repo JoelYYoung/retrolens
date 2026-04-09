@@ -1,21 +1,70 @@
 [project]
-name = "rev-agent"
-version = "0.1.0"
-description = "Claude Code reverse analysis proxy layer"
+name = "flowcraft"
+version = "0.4.0"
+description = "Debugger-style AI conversation log navigator — let any agent extract lessons and workflows from chat sessions"
+readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.10"
+keywords = ["agent", "workflow", "distill", "lessons", "skill", "cli", "flowcraft"]
+authors = [
+    {name = "Joel Yang"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
-    "fastapi>=0.100.0",
-    "uvicorn>=0.22.0",
-    "openai>=1.0.0",
-    "httpx>=0.24.0",
+    "click>=8.0.0",
     "pydantic>=2.0.0",
-    "mcp>=1.0.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "ruff>=0.1.0",
 ]
 
 [project.scripts]
-rev-agent = "adapter:main"
-rev-cli = "cli:main"
-rev-mcp = "mcp_server:main"
+flowcraft-distill = "flowcraft.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/user/flowcraft"
+Documentation = "https://github.com/user/flowcraft#readme"
+Repository = "https://github.com/user/flowcraft"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/flowcraft"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/flowcraft/skills" = "flowcraft/skills"
 
 [tool.uv]
-dev-dependencies = []
+dev-dependencies = [
+    "pytest>=7.0.0",
+    "ruff>=0.1.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_ignores = true

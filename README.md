@@ -1,151 +1,352 @@
-# AgentInspector
+# FlowCraft Distill 🔬
 
-A transparent proxy and MCP-based analysis tool for inspecting AI coding agent LLM session records.
+**Learn from your AI agent conversations — extract workflows, generate executable agents, accumulate lessons learned.**
 
-> **Currently Supported**: Claude Code
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## Features
+## What is this?
 
-- **API Proxy**: Intercept Anthropic/OpenAI API requests and responses
-- **Session Recording**: Persist all communication data for analysis
-- **MCP Server**: Analyze sessions via Model Context Protocol
-- **Round-based Analysis**: Understand agent behavior round by round
+Every day you use AI agents like VS Code Copilot, Claude Code, or Cursor to write code. These conversation logs contain reusable workflows and hard-won lessons — but they're locked inside log files, inaccessible for reuse.
 
-## Quick Start
+**FlowCraft Distill** provides a lightweight CLI + a SKILL.md guide that enables any general-purpose agent to:
 
-### 1. Install
+1. 📂 **Scan** logs → discover conversation sessions
+2. 🔍 **Browse** sessions → drill down like a debugger (overview → turn → tool call)
+3. 🧬 **Extract** workflows → identify phases, steps, decision points → output YAML DSL
+4. 🤖 **Generate** agents → auto-generate LangGraph executable code from YAML DSL
+5. 💡 **Reflect** on lessons → analyze errors, inefficiencies, best practices → output LESSONS.md
+
+```
+Conversation Logs → scan → read → extract → YAML DSL → LangGraph Agent
+                                    ↓
+                                 reflect → LESSONS.md / AGENTS.md
+```
+
+## Installation
 
 ```bash
-# Clone the repo
-git clone https://github.com/yourname/agent-inspector.git
-cd agent-inspector
+# Recommended: using uv
+uv pip install -e .
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Or with uv
-uv sync
+# Or using pip
+pip install -e .
 ```
 
-### 2. Configure Listener
+Verify installation:
+```bash
+flowcraft-distill --version    # 0.4.0
+flowcraft-distill --skill-path # prints SKILL.md path
+```
+
+## Quick Start: 5-Minute Walkthrough
+
+### 1. Scan your VS Code conversation logs
 
 ```bash
-# Copy example config and edit
-cp .env.example .env
-vim .env
+flowcraft-distill scan
+```
+```
+Found 5 session(s):
+
+  #    ID             Source     Date         Model                  Turns  Title
+  ──── ────────────── ────────── ──────────── ────────────────────── ────── ──────
+  1    fb48c98d-523.. vscode     2026-04-09   claude-opus-4.6        9      Workflow extraction
+  2    b1ab08d7-be1.. vscode     2026-04-01   claude-sonnet-4..      1      Traceback analysis
 ```
 
-**`.env` file settings** (for the proxy server):
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `OPENAI_BASE_URL` | Backend API endpoint (OpenAI-compatible) | `https://api.deepseek.com/v1` |
-| `REV_AGENT_PORT` | Proxy server port | `8080` |
-| `HTTP_PROXY` | Optional HTTP proxy | `http://127.0.0.1:7890` |
-
-### 3. Start Listener
+### 2. Browse a session
 
 ```bash
-# Start the proxy server
-python -m tools.listener.adapter
+flowcraft-distill read fb48c  # prefix matching works
+```
+```
+=== Session: fb48c98d-523 ===
+Total Turns: 9
 
-# Or with uv
-uv run python -m tools.listener.adapter
+  #1   [User] The main goal of this project is...
+       [Tools: 568] findFiles, readFile, runSubagent...
+  #2   [User] I think it should be...
+       [Tools: 8] memory, readFile
+  ...
 ```
 
-The proxy will start at `http://localhost:8080`.
-
-### 4. Configure Your Agent
-
-Point your AI coding agent to use the proxy. The API key from Claude Code will be passed through to the backend.
+### 3. Drill into a specific turn
 
 ```bash
-# For Claude Code - set both the proxy URL and your API key
-export ANTHROPIC_BASE_URL=http://localhost:8080
-export ANTHROPIC_API_KEY=sk-ant-your-key-here  # Your actual Anthropic API key
+flowcraft-distill read fb48c --turn 5        # turn 5 details
+flowcraft-distill read fb48c -t 5 --tool 0   # first tool call in turn 5
 ```
 
-> **How it works**: Claude Code sends requests with your `ANTHROPIC_API_KEY` in the headers. 
-> The proxy intercepts the request, logs it, converts to OpenAI format, and forwards to 
-> `OPENAI_BASE_URL` with the same API key.
-
-## Using the MCP Server
-
-Add to your Claude Desktop `settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "agent-session": {
-      "command": "python",
-      "args": ["-m", "tools.analyzer.mcp_server"],
-      "cwd": "/path/to/rev-agent"
-    }
-  }
-}
-```
-
-Then ask Claude to analyze your recorded sessions:
-
-```
-> List all recorded sessions
-> Show me round 3 of session abc123
-> What tools did the agent use in round 5?
-```
-
-### 🎯 Advanced Analysis Prompts
-
-Try these sophisticated prompts to unlock deeper insights:
-
-```
-> Analyze the cognitive workflow of session abc123: How did the agent decompose
-  the problem? What was its exploration strategy vs exploitation strategy?
-
-> Compare rounds 5 and 12 of session abc123. What new information did the agent
-  discover that changed its approach? Show me the "aha moment".
-
-> Trace the agent's hypothesis evolution: What assumptions did it make initially,
-  and how did tool results challenge or confirm these assumptions?
-
-> Visualize the agent's tool dependency graph for this session. Which tools
-  were used as "scouts" (gathering info) vs "executors" (making changes)?
-
-> Find the "dead ends" - rounds where the agent backtracked or abandoned an
-  approach. What triggered these pivots?
-```
-
-See [docs/TOOLS.md](docs/TOOLS.md) for complete MCP tool reference.
-
-## CLI Usage
+### 4. Extract workflow digest
 
 ```bash
-# List sessions
-python -m tools.analyzer.cli list
-
-# Show session details
-python -m tools.analyzer.cli show <session_id>
-
-# Analyze session
-python -m tools.analyzer.cli analyze <session_id>
+flowcraft-distill extract fb48c --json   # structured SessionDigest output
 ```
+
+### 5. Reflect on lessons learned
+
+```bash
+flowcraft-distill reflect fb48c --focus errors --json   # focus on error analysis
+```
+
+---
+
+## ⭐ Core Feature: Refine Workflows with SKILL
+
+This is FlowCraft Distill's most important capability. It works as a **Skill** — a standardized document that guides any general-purpose agent through analyzing conversation logs and distilling reusable workflows.
+
+### How It Works
+
+```
+┌──────────────────────────────────────────────┐
+│  General Agent (VS Code Copilot / Claude...) │
+│                                              │
+│  Reads SKILL.md → knows how to use CLI tools │
+│  Calls CLI → gets structured log data        │
+│  Analyzes data → uses its own LLM reasoning  │
+│  Writes files → .flowcraft/LESSONS.md etc.   │
+└──────────────────────────────────────────────┘
+         ▲                    │
+    SKILL.md guidance     CLI calls
+         │                    ▼
+┌──────────────────────────────────────────────┐
+│  flowcraft-distill CLI (lightweight)         │
+│                                              │
+│  scan    → discover log sessions             │
+│  read    → traverse session data             │
+│  extract → output SessionDigest (JSON)       │
+│  reflect → output SessionDigest + hints      │
+│  show    → view existing artifacts           │
+└──────────────────────────────────────────────┘
+         ▲
+    Parses log files
+         │
+┌──────────────────────────────────────────────┐
+│  Log Files                                   │
+│  VS Code Copilot: JSONL (incremental state)  │
+│  FlowCraft Native: JSON                      │
+└──────────────────────────────────────────────┘
+```
+
+### Workflow A: Extract Workflow & Generate Agent
+
+The core use case. Full pipeline:
+
+```bash
+# Step 1: Find the target session
+flowcraft-distill scan --json
+
+# Step 2: Get structured digest
+flowcraft-distill extract <ID> --json
+# Output includes: user messages, tools used, files touched, commands run per turn
+
+# Step 3: Agent analyzes the digest and identifies workflow phases
+#   Research phase    → read_file, semantic_search dominant
+#   Planning phase    → user discussion, agent asks questions
+#   Implementation    → create_file, replace_string dominant
+#   Testing phase     → run_in_terminal running tests
+#   Documentation     → writing .md files
+
+# Step 4: Agent writes analysis as YAML DSL
+#   → .flowcraft/my-workflow.workflow.yaml
+
+# Step 5: Generate LangGraph code
+flowcraft-distill extract --from-yaml .flowcraft/my-workflow.workflow.yaml --langgraph
+# → .flowcraft/my_workflow_agent.py
+```
+
+Generated LangGraph code includes:
+- **TypedDict state class** — with phase field and custom variables
+- **Phase node functions** — one per workflow phase, with step comments
+- **Tool function stubs** — placeholder implementations for each tool used
+- **Phase router** — state-based phase transitions
+- **Graph builder** — StateGraph + edges + compilation
+- **Main entry point** — ready to run
+
+### Workflow B: Reflect & Extract Lessons Learned
+
+```bash
+# Get reflection digest (with analysis hints)
+flowcraft-distill reflect <ID> --focus errors --json
+
+# Agent analyzes across 5 dimensions:
+#   🔴 Errors & Fixes — tool call failures, user corrections
+#   🟡 Inefficiency Patterns — repeated operations, unnecessary exploration
+#   🟢 Effective Practices — correct tool selection, progressive exploration
+#   ⚠️  Environment Traps — API quotas, network issues, version compat
+#   📋 Agent Directives — explicit rules stated by the user
+
+# Agent writes results to:
+#   → .flowcraft/LESSONS.md     (lessons learned)
+#   → AGENTS.md / CLAUDE.md     (persistent agent directives)
+```
+
+### Workflow C: Navigate Logs Like a Debugger
+
+```bash
+flowcraft-distill read <ID>               # overview of all turns
+flowcraft-distill read <ID> --turn 3      # turn 3 details
+flowcraft-distill read <ID> -t 3 --tool 2 # 3rd tool call in turn 3
+flowcraft-distill read <ID> --turns 1-5   # turns 1-5 comparison
+flowcraft-distill read <ID> --diff 1,5    # diff between turns 1 and 5
+```
+
+### Workflow D: Cross-Session Mining
+
+```bash
+# Scan all sessions
+flowcraft-distill scan --json
+
+# For each relevant session: extract + reflect
+for id in fb48c a1b2c d3e4f; do
+  flowcraft-distill extract $id --json
+  flowcraft-distill reflect $id --json
+done
+
+# Agent synthesizes findings across multiple sessions into consolidated lessons
+```
+
+---
+
+## YAML Workflow DSL Format
+
+```yaml
+workflow:
+  name: "Bug Fix Workflow"
+  goal: "Fix a reported bug with tests"
+  inputs: ["Bug description", "Affected file path"]
+  outputs: ["Fixed code", "Updated tests"]
+
+  phases:
+    - name: Investigation
+      description: Read the affected code and understand the bug
+      entry_condition: Bug report received
+      exit_condition: Root cause identified
+      steps:
+        - description: Read the affected file
+          tools: [read_file]
+        - description: Analyze the code for the bug
+          decision: Is it a logic bug or data bug?
+
+    - name: Fix
+      description: Implement the fix
+      steps:
+        - description: Modify the code
+          tools: [replace_string_in_file]
+        - description: Add input validation
+          tools: [replace_string_in_file]
+
+    - name: Verification
+      description: Run tests to verify the fix
+      steps:
+        - description: Run test suite
+          tools: [run_in_terminal]
+        - description: Check for regressions
+          decision: All tests pass?
+
+  dependencies:
+    - "Fix requires Investigation results"
+    - "Verification requires Fix to be complete"
+```
+
+---
+
+## Integrating the SKILL into Your Project
+
+FlowCraft Distill is designed as a **Skill** for any general-purpose agent. Here's how to integrate with each platform:
+
+### VS Code Copilot Chat
+
+Add to your project's `AGENTS.md`:
+```markdown
+## Conversation Analysis Skill
+Use `flowcraft-distill` CLI to analyze conversation logs and extract workflows.
+- Extract workflow: `flowcraft-distill extract <ID> --json`
+- Reflect on lessons: `flowcraft-distill reflect <ID> --json`
+- Browse session: `flowcraft-distill read <ID> --turn N`
+- Full guide: `flowcraft-distill --skill-path`
+Always use `--json` for structured output.
+```
+
+### Claude Code
+
+Add to `CLAUDE.md`:
+```markdown
+Use `flowcraft-distill` CLI to extract workflows and lessons from conversation logs.
+Full SKILL.md path: flowcraft-distill --skill-path
+Key commands: scan, read, extract, reflect, show. Always use --json.
+```
+
+### Cursor
+
+Add to `.cursorrules`:
+```
+When reviewing past sessions, use the flowcraft-distill CLI.
+Commands: scan, extract, reflect, read, show. Always use --json flag.
+```
+
+---
+
+## CLI Command Reference
+
+| Command | Purpose | Key Options |
+|---------|---------|-------------|
+| `scan` | Discover sessions | `--source vscode`, `--limit N`, `--json` |
+| `read <ID>` | Browse session | `--turn N`, `--tool M`, `--turns 1-5`, `--diff 1,3`, `--raw`, `--json` |
+| `extract <ID>` | Extract workflow digest | `--max-turns N`, `--from-yaml <file>`, `--langgraph`, `--json` |
+| `reflect <ID>` | Reflect on lessons | `--focus {all,errors,inefficiency,practices,traps}`, `--json` |
+| `show` | View existing artifacts | `--type {all,lessons,workflow}`, `--dir <path>`, `--json` |
+
+> **Tip**: Session IDs support prefix matching (e.g., `fb48c` matches `fb48c98d-5233-...`) and the `latest` keyword.
+
+## Supported Log Formats
+
+| Source | Format | Log Location (macOS) |
+|--------|--------|---------------------|
+| VS Code Copilot Chat | JSONL (incremental state machine) | `~/Library/.../Code/User/workspaceStorage/*/GitHub.copilot-chat/debug-logs/*.jsonl` |
+| FlowCraft Native | JSON | `./logs/sessions/` |
+
+> More formats (Claude Code, Cursor, etc.) are planned.
 
 ## Project Structure
 
 ```
-agent-inspector/
-├── tools/
-│   ├── listener/      # API proxy server
-│   │   ├── adapter.py # FastAPI proxy
-│   │   └── storage.py # Session storage
-│   └── analyzer/      # Analysis tools
-│       ├── cli.py     # CLI interface
-│       ├── engine.py  # Analysis engine
-│       └── mcp_server.py  # MCP server
-├── docs/
-│   └── TOOLS.md       # MCP tools reference
-├── .env.example       # Configuration template
-└── README.md
+src/flowcraft/
+├── __init__.py                 # Version info
+├── cli.py                      # Click CLI (5 commands)
+├── models.py                   # Pydantic v2 data models (16+ models)
+├── formatters.py               # Text/JSON dual-mode output
+├── workflow_dsl.py             # YAML DSL serialization + LangGraph codegen
+├── readers/
+│   ├── __init__.py             # BaseReader ABC + ReaderRegistry
+│   ├── vscode_copilot.py       # VS Code Copilot JSONL parser
+│   └── flowcraft_native.py     # FlowCraft native log reader
+└── skills/
+    ├── SKILL.md                # ⭐ Agent skill document (core artifact)
+    └── templates/              # YAML, Python, Markdown templates
+tests/
+├── conftest.py
+├── test_models.py              # 20 tests
+├── test_workflow_dsl.py        # 38 tests
+├── test_readers.py             # 36 tests
+├── test_distill_cli.py         # 32 tests
+└── fixtures/                   # Test data
 ```
 
-## License
+## Development
 
-MIT - See [LICENSE](LICENSE) for details.
+```bash
+# Install dev dependencies
+uv pip install -e ".[dev]"
+
+# Run tests (126 tests)
+python -m pytest tests/ -v
+
+# Lint
+ruff check src/
+```
+
+## 📄 License
+
+MIT License — see [LICENSE](LICENSE)
