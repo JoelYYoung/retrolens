@@ -1,1 +1,1 @@
-../../../src/retrolens/skills/SKILL.md
+../../../skill/SKILL.md

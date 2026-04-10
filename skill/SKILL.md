@@ -1,8 +1,11 @@
 ---
 name: retrolens
-description: "Navigate AI conversation logs like a debugger. Use when: analyzing past sessions, understanding what happened in a conversation, extracting workflows and lessons from session data."
-argument-hint: "Session ID or 'latest' to analyze"
-tools: [retrolens]
+description: "Navigate AI conversation logs like a debugger. Use when analyzing past agent sessions, understanding what happened in a conversation, building custom log readers, or extracting workflows and lessons from session data."
+compatibility: "Requires Python >=3.10 and pip (or uv). Install with: pip install retrolens"
+metadata:
+  author: JoelYYoung
+  version: "0.5.1"
+  repository: "https://github.com/JoelYYoung/retrolens"
 ---
 
 # RetroLens — AI Conversation Log Navigator
@@ -70,15 +73,15 @@ If sessions appear, you're done. If not, proceed to manual discovery.
 
 ### Step 2: Explore the Filesystem
 
-Search for conversation log files. Logs are almost always `.jsonl` files:
+Use the bundled discovery script or search manually:
 
 ```bash
-# Search for JSONL files in likely locations
+# Option A: Use the bundled script
+bash scripts/find_logs.sh --project /path/to/project
+
+# Option B: Search manually for JSONL files
 find ~ -name "*.jsonl" -path "*/chatSessions/*" -maxdepth 8 2>/dev/null | head -20
 find ~ -name "*.jsonl" -path "*/.claude/*" -maxdepth 6 2>/dev/null | head -20
-
-# Or use fd if available (faster)
-fd -e jsonl . ~ --max-depth 8 2>/dev/null | head -30
 ```
 
 **Where to look** (hints — always verify):
@@ -90,9 +93,13 @@ fd -e jsonl . ~ --max-depth 8 2>/dev/null | head -30
 
 ### Step 3: Identify the Format
 
-Read the first 3 lines of a candidate file:
+Sample a candidate file to identify its format:
 
 ```bash
+# Option A: Use the bundled sampler (pretty-prints + guesses format)
+python scripts/sample_log.py <some-file.jsonl>
+
+# Option B: Manual inspection
 head -3 <some-file.jsonl>
 ```
 
@@ -187,6 +194,15 @@ class MyPlatformReader(BaseReader):
 ### Step 3: Validate
 
 **Always run a verification loop after implementing or modifying a reader.**
+
+Use the bundled validation script or check manually:
+
+```bash
+# Automated validation (checks N turns, reports pass/fail per field)
+python scripts/validate_reader.py --path /path/to/logs --turns 3
+```
+
+Or check manually:
 
 1. **Register and test**:
    ```bash
@@ -429,3 +445,14 @@ Always use --json for structured output.
 Use `retrolens` CLI to navigate conversation logs.
 Key commands: cfg set, ls, read. Always use --json.
 ```
+
+---
+
+## Bundled Files
+
+| Path | Purpose |
+|------|---------|
+| `scripts/find_logs.sh` | Discover AI conversation log files on the system |
+| `scripts/sample_log.py` | Sample JSONL files and auto-detect log format |
+| `scripts/validate_reader.py` | Validate reader output with field-level checks |
+| [references/READER-API.md](references/READER-API.md) | BaseReader interface and data model reference |
