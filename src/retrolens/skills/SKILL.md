@@ -24,13 +24,28 @@ retrolens --skill-path
 
 ## Commands
 
-### `scan` — Discover Sessions
+### `cfg` — Set Working State (Do This First) ⭐
 
 ```bash
-retrolens scan                    # Auto-discover all sources
-retrolens scan --source vscode    # VS Code Copilot Chat only
-retrolens scan --limit 10 --json  # JSON output (for agents)
+retrolens cfg set --path /path/to/logs   # Set log directory (persistent)
+retrolens cfg set --source vscode        # Set default source type
+retrolens cfg show                       # View current config
+retrolens cfg clear                      # Reset to defaults
 ```
+
+Once set, all other commands (`ls`, `read`, `extract`, `reflect`) use this path
+and source automatically.
+
+### `ls` — List Sessions
+
+```bash
+retrolens ls                          # List sessions from configured path
+retrolens ls --limit 10 --json        # JSON output (for agents)
+```
+
+> **Prerequisite**: Run `retrolens cfg set --path <dir>` first. If you don't
+> know where logs are, consult the **Discovery Skill** (`DISCOVERY.md` bundled
+> with retrolens) for exploration strategies.
 
 ### `read` — Navigate Session (Debugger ⭐)
 
@@ -79,7 +94,7 @@ retrolens show --type lessons     # Only lesson files
 
 1. **Find the target session**:
    ```bash
-   retrolens scan --json
+   retrolens ls --json
    ```
    Pick a session that accomplished a meaningful goal (look for sessions with >3 turns).
 
@@ -231,7 +246,7 @@ retrolens show --type lessons     # Only lesson files
 
 ### Step-by-Step
 
-1. Scan → pick session: `retrolens scan --json`
+1. List sessions: `retrolens ls --json`
 2. Overview: `retrolens read <ID>`
 3. Drill into interesting turns: `retrolens read <ID> --turn N`
 4. Inspect specific tool calls: `retrolens read <ID> -t N --tool M`
@@ -245,7 +260,7 @@ retrolens show --type lessons     # Only lesson files
 
 ### Step-by-Step
 
-1. **Scan recent sessions**: `retrolens scan --limit 10 --json`
+1. **List recent sessions**: `retrolens ls --limit 10 --json`
 2. **Extract digests for each**: 
    ```bash
    retrolens extract <ID1> --json > /tmp/digest1.json
@@ -277,7 +292,7 @@ Templates are in the `skills/templates/` directory alongside this SKILL.md:
 ### Data Flow
 
 ```
-scan → pick session → extract/reflect → digest (JSON) → agent analysis → output files
+cfg set → ls → pick session → extract/reflect → digest (JSON) → agent analysis → output files
 ```
 
 ### Key Rules
@@ -291,7 +306,7 @@ scan → pick session → extract/reflect → digest (JSON) → agent analysis �
 
 3. **Progressive drilling** — don't read everything at once:
    ```
-   scan → overview → interesting turns → tool details
+   ls → overview → interesting turns → tool details
    ```
 
 4. **For extract, use `--max-turns`** on very long sessions to avoid overwhelming context.
@@ -331,7 +346,7 @@ See: retrolens --skill-path
 **Cursor**: Add to .cursorrules:
 ```
 When reviewing past sessions, use the retrolens CLI.
-Commands: scan, extract, reflect, read, show.
+Commands: cfg, ls, extract, reflect, read, show.
 Always use --json flag for structured output.
 ```
 
@@ -339,18 +354,22 @@ Always use --json flag for structured output.
 
 ## Supported Log Formats
 
-| Source | Format | Location (macOS) |
+| Source | Format | Built-in Reader |
 |------|------|------|
-| VS Code Copilot Chat | JSONL incremental state | `~/Library/Application Support/Code/User/workspaceStorage/*/chatSessions/*.jsonl` |
-| Claude Code | JSONL event stream | `~/.claude/projects/<encoded-path>/*.jsonl` |
-| RetroLens Native | JSON files per request/response | `./logs/sessions/` |
+| VS Code Copilot Chat | JSONL incremental state | `vscode` |
+| Claude Code | JSONL event stream | `claude_code` |
+| RetroLens Native | JSON files per request/response | `retrolens` |
 
-All platforms store sessions **per-project**. Use `retrolens discover` to see available sources.
+All platforms store sessions **per-project**. Use `retrolens cfg set --path <dir>` to point at a specific log directory.
+
+> **Note**: Log storage paths change across platform versions. If `ls` returns nothing,
+> consult the **Discovery Skill** (`DISCOVERY.md` bundled alongside this file) for exploration
+> strategies to locate logs on your system.
 
 ### Adding New Log Formats
 
-For unsupported platforms, see the **Discovery Skill** (`DISCOVERY.md` bundled alongside this file). It teaches agents how to:
-1. Find log files on any platform
+For unsupported platforms, see the **Discovery Skill** (`DISCOVERY.md`). It teaches agents how to:
+1. Explore the filesystem to find log files
 2. Sample and identify the format
 3. Write a custom reader following the `BaseReader` interface
 4. Register it with the reader registry

@@ -205,3 +205,55 @@ def create_default_registry() -> ReaderRegistry:
         pass
 
     return registry
+
+
+def load_custom_reader(reader_path: str, registry: ReaderRegistry) -> BaseReader:
+    """Load a custom reader from a .py file and register it.
+
+    The .py file must define a class that inherits from BaseReader.
+    The first such class found is instantiated and registered.
+
+    Args:
+        reader_path: Absolute path to a .py file containing a BaseReader subclass.
+        registry: The registry to add the reader to.
+
+    Returns:
+        The instantiated reader.
+
+    Raises:
+        ValueError: If no BaseReader subclass is found in the file.
+        FileNotFoundError: If the reader file doesn't exist.
+    """
+    import importlib.util
+    import inspect
+
+    path = Path(reader_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Reader file not found: {reader_path}")
+    if not path.suffix == ".py":
+        raise ValueError(f"Reader must be a .py file, got: {path.suffix}")
+
+    # Load the module dynamically
+    spec = importlib.util.spec_from_file_location(f"retrolens_custom_{path.stem}", path)
+    if spec is None or spec.loader is None:
+        raise ValueError(f"Cannot load module from: {reader_path}")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    # Find BaseReader subclass(es)
+    reader_class = None
+    for _name, obj in inspect.getmembers(module, inspect.isclass):
+        if issubclass(obj, BaseReader) and obj is not BaseReader:
+            reader_class = obj
+            break
+
+    if reader_class is None:
+        raise ValueError(
+            f"No BaseReader subclass found in {reader_path}. "
+            f"The file must define a class inheriting from retrolens.readers.BaseReader."
+        )
+
+    reader = reader_class()
+    registry.register(reader)
+    return reader

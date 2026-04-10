@@ -30,7 +30,8 @@ retrolens --version  # verify
 
 1. **Find the target session**:
    ```bash
-   retrolens scan --json
+   retrolens cfg set --path <log-dir>   # point at logs (auto-detects format)
+   retrolens ls --json                   # list available sessions
    ```
    Pick a session with >3 turns that accomplished a meaningful goal.
 
@@ -79,7 +80,7 @@ retrolens --version  # verify
 
 **Goal**: Learn from a session — find errors, inefficiencies, good practices, and environment traps.
 
-1. **Get the reflection digest**:
+1. **Get the reflection digest** (requires `cfg set --path` first):
    ```bash
    retrolens reflect <ID> --focus errors --json
    ```
@@ -107,7 +108,7 @@ retrolens read <ID> --diff 1,5    # diff between turns 1 and 5
 ## Workflow D: Cross-Session Mining
 
 ```bash
-retrolens scan --limit 10 --json
+retrolens ls --limit 10 --json
 # For each relevant session: extract + reflect
 # Synthesize findings into consolidated lessons
 ```
@@ -116,7 +117,7 @@ retrolens scan --limit 10 --json
 
 1. **Always use `--json`** for structured data processing
 2. **Use prefix matching** — `fb48c` matches `fb48c98d-5233-...`
-3. **Progressive drilling** — scan → overview → turns → tool details
+3. **Progressive drilling** — cfg set → ls → read → turns → tool details
 4. **Use `--max-turns`** on long sessions to manage context
 5. **Use `--focus`** with reflect to narrow analysis scope
 6. **Check existing artifacts** with `retrolens show` before writing
@@ -127,12 +128,17 @@ retrolens scan --limit 10 --json
 
 | Command | Purpose | Key Options |
 |---------|---------|-------------|
-| `discover` | Find log sources | `--json` |
-| `scan` | Discover sessions | `--source {auto,vscode,claude_code,retrolens}`, `--limit N`, `--json` |
+| `cfg set` | Configure working state | `--path <dir>`, `--source <type>`, `--reader <file.py>`, `--json` |
+| `cfg show` | Show current config | `--json` |
+| `cfg clear` | Reset config | |
+| `ls` | List sessions | `--limit N`, `--json` |
 | `read <ID>` | Browse session | `--turn N`, `--tool M`, `--turns 1-5`, `--diff 1,3`, `--json` |
 | `extract <ID>` | Extract workflow | `--max-turns N`, `--from-yaml`, `--langgraph`, `--json` |
 | `reflect <ID>` | Reflect on lessons | `--focus {all,errors,inefficiency,practices,traps}`, `--json` |
 | `show` | View artifacts | `--type {all,lessons,workflow}`, `--json` |
+
+> **Tip**: Use `cfg set --path <dir>` once. Format is auto-detected. All subsequent
+> commands (`ls`, `read`, `extract`, `reflect`) use the configured path automatically.
 
 ## Full Reference
 

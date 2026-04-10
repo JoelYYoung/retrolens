@@ -2,12 +2,15 @@
 RetroLens CLI — debugger-style AI conversation log navigator.
 
 Commands:
-    scan   — Discover available sessions
+    cfg    — Set/show working log path and source (persistent state)
+    ls     — List sessions in the configured log path
     read   — Navigate session turns (overview → detail → tool → raw)
     show   — View existing .retrolens/ artifacts
 
 Usage:
-    retrolens scan
+    retrolens cfg set --path /path/to/logs
+    retrolens cfg show
+    retrolens ls
     retrolens read <session_id>
     retrolens read <session_id> --turn 1
     retrolens read <session_id> --turn 1 --tool 0
@@ -25,9 +28,10 @@ from typing import Optional
 
 import click
 
-from . import formatters
+from . import config, formatters
+from .detect import detect_format_for_dir, describe_detection
 from .models import ArtifactInfo, SessionDigest, TurnDigest, ToolUsage
-from .readers import BaseReader, ReaderRegistry, create_default_registry
+from .readers import BaseReader, ReaderRegistry, create_default_registry, load_custom_reader
 
 
 def _get_skill_path() -> str:
@@ -35,25 +39,64 @@ def _get_skill_path() -> str:
     return str(Path(__file__).parent / "skills" / "SKILL.md")
 
 
-def _get_reader(
-    registry: ReaderRegistry, source: str, path: Optional[str]
-) -> tuple[BaseReader | None, ReaderRegistry]:
-    """Get a specific reader or return None to use registry-level ops."""
-    if source != "auto":
+def _ensure_configured() -> tuple[str, str]:
+    """Ensure config has path and source. Returns (path, source).
+
+    Exits with helpful message if not configured.
+    """
+    cfg_path = config.get_path()
+    cfg_source = config.get_source()
+
+    if not cfg_path:
+        click.echo(
+            "Error: No log path configured.\n"
+            "Use `retrolens cfg set --path <dir>` to point at a log directory.",
+            err=True,
+        )
+        sys.exit(1)
+
+    if not cfg_source:
+        click.echo(
+            "Error: No source type configured.\n"
+            "Use `retrolens cfg set --source <type>` or re-run `cfg set --path` to auto-detect.",
+            err=True,
+        )
+        sys.exit(1)
+
+    return cfg_path, cfg_source
+
+
+def _get_reader_from_config(registry: ReaderRegistry) -> tuple[BaseReader, Path]:
+    """Get the reader and path from current config. Loads custom reader if needed."""
+    cfg_path, cfg_source = _ensure_configured()
+
+    # Load custom reader if configured
+    custom_reader_path = config.get_reader()
+    if custom_reader_path:
         try:
-            reader = registry.get(source)
-            return reader, registry
-        except KeyError:
-            click.echo(f"Error: Unknown source '{source}'. Available: {registry.source_types}", err=True)
-            sys.exit(1)
-    return None, registry
+            load_custom_reader(custom_reader_path, registry)
+        except Exception as e:
+            click.echo(f"Warning: Failed to load custom reader: {e}", err=True)
+
+    try:
+        reader = registry.get(cfg_source)
+    except KeyError:
+        click.echo(
+            f"Error: Unknown source type '{cfg_source}'.\n"
+            f"Available: {registry.source_types}\n"
+            f"If you need a custom reader, use: retrolens cfg set --reader <path.py>",
+            err=True,
+        )
+        sys.exit(1)
+
+    return reader, Path(cfg_path)
 
 
 # ── CLI Group ───────────────────────────────────────────────────────────────
 
 @click.group(invoke_without_command=True)
 @click.option("--skill-path", is_flag=True, help="Print the path to SKILL.md and exit")
-@click.version_option(version="0.4.0", prog_name="retrolens")
+@click.version_option(version="0.5.0", prog_name="retrolens")
 @click.pass_context
 def main(ctx: click.Context, skill_path: bool) -> None:
     """RetroLens — navigate AI conversation logs like a debugger."""
@@ -68,197 +111,157 @@ def main(ctx: click.Context, skill_path: bool) -> None:
         click.echo(ctx.get_help())
 
 
-# ── scan ────────────────────────────────────────────────────────────────────
+# ── cfg ─────────────────────────────────────────────────────────────────────
+
+@main.group(invoke_without_command=True)
+@click.pass_context
+def cfg(ctx: click.Context) -> None:
+    """Manage working state (log path, source, custom reader).
+
+    Set a log path once, then ls/read/extract/reflect use it automatically.
+    Format is auto-detected when setting --path.
+
+    \b
+    Examples:
+      retrolens cfg set --path /path/to/logs    # auto-detects format
+      retrolens cfg set --source vscode          # override source type
+      retrolens cfg set --reader ./my_reader.py  # register custom reader
+      retrolens cfg show                         # show current state
+      retrolens cfg clear                        # reset
+    """
+    if ctx.invoked_subcommand is None:
+        ctx.invoke(cfg_show)
+
+
+@cfg.command("set")
+@click.option("--path", "-p", "log_path", default=None, help="Log directory path")
+@click.option("--source", "-s", default=None, help="Source type: vscode, claude_code, retrolens, or custom")
+@click.option("--reader", "-r", "reader_path", default=None, help="Custom reader .py file path")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_context
+def cfg_set(ctx: click.Context, log_path: Optional[str], source: Optional[str],
+            reader_path: Optional[str], as_json: bool) -> None:
+    """Set working log path, source type, and/or custom reader.
+
+    When --path is set, the format is auto-detected by sampling files.
+    Use --source to override auto-detection.
+    Use --reader to load a custom BaseReader from a .py file.
+    """
+    if log_path is None and source is None and reader_path is None:
+        click.echo("Nothing to set. Use --path, --source, and/or --reader.", err=True)
+        sys.exit(1)
+
+    registry: ReaderRegistry = ctx.obj["registry"]
+
+    # If a custom reader is provided, validate and load it first
+    if reader_path:
+        try:
+            loaded = load_custom_reader(reader_path, registry)
+            # If no explicit source, use the custom reader's source_type
+            if source is None:
+                source = loaded.source_type
+        except (FileNotFoundError, ValueError) as e:
+            click.echo(f"Error loading reader: {e}", err=True)
+            sys.exit(1)
+
+    # Auto-detect format when path is set (and source not explicitly given)
+    detected_source = None
+    if log_path and source is None:
+        p = Path(log_path)
+        if not p.exists():
+            click.echo(f"Warning: path does not exist: {log_path}", err=True)
+        else:
+            detected_source = detect_format_for_dir(p)
+            if detected_source:
+                source = detected_source
+            else:
+                click.echo(
+                    f"Warning: Could not auto-detect log format in {log_path}\n"
+                    f"Use --source to specify manually, or --reader to load a custom reader.",
+                    err=True,
+                )
+
+    data = config.set_values(
+        path=log_path,
+        source=source,
+        reader=reader_path,
+    )
+
+    if as_json:
+        result = config.status()
+        if detected_source:
+            result["auto_detected"] = detected_source
+        click.echo(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        click.echo("Config updated:")
+        if "path" in data:
+            click.echo(f"  path:   {data['path']}")
+        if "source" in data:
+            icon = " (auto-detected)" if detected_source else ""
+            click.echo(f"  source: {data['source']}{icon}")
+        if "reader" in data:
+            click.echo(f"  reader: {data['reader']}")
+
+
+@cfg.command("show")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def cfg_show(as_json: bool = False) -> None:
+    """Show current working state."""
+    st = config.status()
+
+    if as_json:
+        click.echo(json.dumps(st, ensure_ascii=False, indent=2))
+        return
+
+    if not st["exists"]:
+        click.echo("No config set. Use `retrolens cfg set --path <dir>` to set a working directory.")
+        return
+
+    click.echo("RetroLens working state:")
+    if st.get("path"):
+        click.echo(f"  path:   {st['path']}")
+    if st.get("source"):
+        click.echo(f"  source: {st['source']}")
+    if st.get("reader"):
+        click.echo(f"  reader: {st['reader']}")
+    click.echo(f"  file:   {st['config_file']}")
+
+
+@cfg.command("clear")
+def cfg_clear() -> None:
+    """Clear all config (reset to defaults)."""
+    config.clear()
+    click.echo("Config cleared.")
+
+
+# ── ls ──────────────────────────────────────────────────────────────────────
 
 @main.command()
-@click.option("--source", "-s", default="auto", help="Log source: auto, vscode, claude_code, retrolens")
-@click.option("--path", "-p", "log_path", default=None, help="Custom log directory path")
 @click.option("--limit", "-n", default=20, help="Max sessions to show")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_context
-def scan(ctx: click.Context, source: str, log_path: Optional[str], limit: int, as_json: bool) -> None:
-    """Discover available sessions across all log sources."""
-    registry: ReaderRegistry = ctx.obj["registry"]
-    p = Path(log_path) if log_path else None
+def ls(ctx: click.Context, limit: int, as_json: bool) -> None:
+    """List sessions in the configured log path.
 
-    reader, _ = _get_reader(registry, source, log_path)
+    Requires `cfg set --path <dir>` to be run first.
+
+    \b
+    Examples:
+      retrolens ls              # List up to 20 sessions
+      retrolens ls -n 50        # List up to 50
+      retrolens ls --json       # JSON output for agents
+    """
+    registry: ReaderRegistry = ctx.obj["registry"]
+    reader, log_path = _get_reader_from_config(registry)
 
     try:
-        if reader:
-            sessions = reader.scan(p)
-        else:
-            sessions = registry.auto_discover(p)
+        sessions = reader.scan(log_path)
     except Exception as e:
-        click.echo(f"Error scanning: {e}", err=True)
+        click.echo(f"Error listing sessions: {e}", err=True)
         sys.exit(1)
 
     sessions = sessions[:limit]
     click.echo(formatters.format_session_list(sessions, as_json=as_json))
-
-
-# ── discover ────────────────────────────────────────────────────────────────
-
-@main.command()
-@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
-@click.pass_context
-def discover(ctx: click.Context, as_json: bool) -> None:
-    """Discover available log sources and their locations.
-
-    Scans known locations for AI assistant conversation logs
-    and reports what was found. Useful for first-time setup and
-    debugging missing sessions.
-
-    \b
-    Examples:
-      retrolens discover           # Human-readable report
-      retrolens discover --json    # Machine-readable for agents
-    """
-    import platform as _platform
-
-    registry: ReaderRegistry = ctx.obj["registry"]
-
-    sources: list[dict] = []
-
-    for source_type in registry.source_types:
-        reader = registry.get(source_type)
-        try:
-            sessions = reader.scan()
-            sources.append({
-                "source_type": source_type,
-                "status": "active",
-                "sessions_count": len(sessions),
-                "latest_date": sessions[0].date.isoformat() if sessions and sessions[0].date else None,
-                "latest_model": sessions[0].model if sessions else None,
-            })
-        except Exception as e:
-            sources.append({
-                "source_type": source_type,
-                "status": "error",
-                "sessions_count": 0,
-                "error": str(e),
-            })
-
-    # Also report known paths for this OS
-    known_paths = _get_known_paths()
-
-    result = {
-        "platform": _platform.system(),
-        "registered_readers": registry.source_types,
-        "sources": sources,
-        "known_paths": known_paths,
-        "discovery_skill": str(Path(__file__).parent / "skills" / "DISCOVERY.md"),
-    }
-
-    if as_json:
-        click.echo(json.dumps(result, ensure_ascii=False, indent=2, default=str))
-    else:
-        click.echo(f"{_C_BOLD}RetroLens — Log Source Discovery{_C_RESET}")
-        click.echo(f"Platform: {result['platform']}")
-        click.echo(f"Registered readers: {', '.join(result['registered_readers'])}")
-        click.echo()
-
-        for src in sources:
-            status_icon = "✅" if src["status"] == "active" and src["sessions_count"] > 0 else "⚠️" if src["status"] == "active" else "❌"
-            click.echo(f"  {status_icon} {src['source_type']}: {src['sessions_count']} sessions")
-            if src.get("latest_date"):
-                click.echo(f"     Latest: {src['latest_date']}")
-            if src.get("error"):
-                click.echo(f"     Error: {src['error']}")
-
-        click.echo()
-        click.echo(f"{_C_BOLD}Known log locations:{_C_RESET}")
-        for kp in known_paths:
-            exists_icon = "📁" if kp["exists"] else "  "
-            click.echo(f"  {exists_icon} {kp['platform']}: {kp['path']}")
-            if kp.get("sessions_count") is not None:
-                click.echo(f"      ({kp['sessions_count']} session files)")
-
-        click.echo()
-        click.echo(f"📖 Discovery skill: {result['discovery_skill']}")
-
-
-def _get_known_paths() -> list[dict]:
-    """Check known log locations and report what exists."""
-    import platform as _platform
-
-    home = Path.home()
-    system = _platform.system()
-    results = []
-
-    # VS Code
-    if system == "Darwin":
-        vscode_base = home / "Library" / "Application Support" / "Code" / "User" / "workspaceStorage"
-    elif system == "Linux":
-        vscode_base = home / ".config" / "Code" / "User" / "workspaceStorage"
-    elif system == "Windows":
-        vscode_base = home / "AppData" / "Roaming" / "Code" / "User" / "workspaceStorage"
-    else:
-        vscode_base = None
-
-    if vscode_base:
-        exists = vscode_base.exists()
-        session_count = None
-        if exists:
-            session_count = sum(1 for _ in vscode_base.rglob("chatSessions/*.jsonl"))
-        results.append({
-            "platform": "VS Code Copilot Chat",
-            "path": str(vscode_base / "*/chatSessions/"),
-            "exists": exists,
-            "sessions_count": session_count,
-        })
-
-    # Cursor (same structure as VS Code)
-    if system == "Darwin":
-        cursor_base = home / "Library" / "Application Support" / "Cursor" / "User" / "workspaceStorage"
-    elif system == "Linux":
-        cursor_base = home / ".config" / "Cursor" / "User" / "workspaceStorage"
-    else:
-        cursor_base = None
-
-    if cursor_base:
-        exists = cursor_base.exists()
-        session_count = None
-        if exists:
-            session_count = sum(1 for _ in cursor_base.rglob("chatSessions/*.jsonl"))
-        results.append({
-            "platform": "Cursor",
-            "path": str(cursor_base / "*/chatSessions/"),
-            "exists": exists,
-            "sessions_count": session_count,
-        })
-
-    # Claude Code
-    claude_projects = home / ".claude" / "projects"
-    exists = claude_projects.exists()
-    session_count = None
-    if exists:
-        session_count = sum(1 for _ in claude_projects.rglob("*.jsonl"))
-    results.append({
-        "platform": "Claude Code",
-        "path": str(claude_projects),
-        "exists": exists,
-        "sessions_count": session_count,
-    })
-
-    # RetroLens native (CWD)
-    native_logs = Path("logs")
-    exists = native_logs.exists() and (native_logs / "index.json").exists()
-    session_count = None
-    if exists:
-        try:
-            with open(native_logs / "index.json") as f:
-                data = json.load(f)
-            session_count = len(data.get("sessions", []))
-        except Exception:
-            pass
-    results.append({
-        "platform": "RetroLens Native",
-        "path": str(native_logs.resolve()),
-        "exists": exists,
-        "sessions_count": session_count,
-    })
-
-    return results
 
 
 # ── read ────────────────────────────────────────────────────────────────────
@@ -290,8 +293,6 @@ def _parse_diff(value: str) -> tuple[int, int]:
 
 @main.command()
 @click.argument("session_id")
-@click.option("--source", "-s", default="auto", help="Log source")
-@click.option("--path", "-p", "log_path", default=None, help="Custom log path")
 @click.option("--turn", "-t", "turn_num", type=int, default=None, help="Show specific turn detail")
 @click.option("--turns", "turns_range", default=None, help="Show turns range (e.g. 1-5)")
 @click.option("--tool", "tool_idx", type=int, default=None, help="Show specific tool call (with --turn)")
@@ -302,8 +303,6 @@ def _parse_diff(value: str) -> tuple[int, int]:
 def read(
     ctx: click.Context,
     session_id: str,
-    source: str,
-    log_path: Optional[str],
     turn_num: Optional[int],
     turns_range: Optional[str],
     tool_idx: Optional[int],
@@ -314,6 +313,7 @@ def read(
     """Navigate a session — overview, turns, tool calls, raw data.
 
     SESSION_ID can be a full ID, a prefix, or 'latest'.
+    Requires `cfg set --path <dir>` to be run first.
 
     \b
     Examples:
@@ -325,16 +325,11 @@ def read(
       retrolens read latest --raw -t 1   # Raw JSON for turn 1
     """
     registry: ReaderRegistry = ctx.obj["registry"]
-    p = Path(log_path) if log_path else None
-    reader_specific, _ = _get_reader(registry, source, log_path)
+    reader, log_path = _get_reader_from_config(registry)
 
     # Resolve session ID
     try:
-        if reader_specific:
-            full_id = reader_specific.resolve_session_id(session_id, p)
-            reader = reader_specific
-        else:
-            reader, full_id = registry.resolve(session_id)
+        full_id = reader.resolve_session_id(session_id, log_path)
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
@@ -469,8 +464,6 @@ def _build_session_digest(
 
 @main.command()
 @click.argument("session_id", default="latest")
-@click.option("--source", "-s", default="auto", help="Log source")
-@click.option("--path", "-p", "log_path", default=None, help="Custom log path")
 @click.option("--max-turns", "-n", default=0, help="Limit turns to process (0 = all)")
 @click.option("--from-yaml", "yaml_path", default=None, help="Generate LangGraph from existing YAML DSL")
 @click.option("--langgraph", is_flag=True, help="Also output LangGraph code template")
@@ -480,8 +473,6 @@ def _build_session_digest(
 def extract(
     ctx: click.Context,
     session_id: str,
-    source: str,
-    log_path: Optional[str],
     max_turns: int,
     yaml_path: Optional[str],
     langgraph: bool,
@@ -489,6 +480,8 @@ def extract(
     as_json: bool,
 ) -> None:
     """Extract workflow from a session (prepare digest for agent analysis).
+
+    Requires `cfg set --path <dir>` to be run first (except --from-yaml mode).
 
     \b
     Two modes:
@@ -511,7 +504,7 @@ def extract(
         save_langgraph_code,
     )
 
-    # Mode 2: YAML → LangGraph
+    # Mode 2: YAML → LangGraph (doesn't need config)
     if yaml_path:
         yaml_file = Path(yaml_path)
         if not yaml_file.exists():
@@ -537,15 +530,10 @@ def extract(
 
     # Mode 1: Session → Digest
     registry: ReaderRegistry = ctx.obj["registry"]
-    p = Path(log_path) if log_path else None
-    reader_specific, _ = _get_reader(registry, source, log_path)
+    reader, log_path = _get_reader_from_config(registry)
 
     try:
-        if reader_specific:
-            full_id = reader_specific.resolve_session_id(session_id, p)
-            reader = reader_specific
-        else:
-            reader, full_id = registry.resolve(session_id)
+        full_id = reader.resolve_session_id(session_id, log_path)
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
@@ -562,8 +550,6 @@ def extract(
 
 @main.command()
 @click.argument("session_id", default="latest")
-@click.option("--source", "-s", default="auto", help="Log source")
-@click.option("--path", "-p", "log_path", default=None, help="Custom log path")
 @click.option("--max-turns", "-n", default=0, help="Limit turns to process (0 = all)")
 @click.option("--focus", "-f", default="all",
               help="Focus area: all, errors, inefficiency, practices, traps")
@@ -572,8 +558,6 @@ def extract(
 def reflect(
     ctx: click.Context,
     session_id: str,
-    source: str,
-    log_path: Optional[str],
     max_turns: int,
     focus: str,
     as_json: bool,
@@ -582,6 +566,7 @@ def reflect(
 
     Generates a SessionDigest annotated with focus hints. The agent
     uses this digest + SKILL.md guidance to produce ReflectionResult.
+    Requires `cfg set --path <dir>` to be run first.
 
     \b
     Examples:
@@ -590,15 +575,10 @@ def reflect(
       retrolens reflect latest -n 10 --json   # First 10 turns
     """
     registry: ReaderRegistry = ctx.obj["registry"]
-    p = Path(log_path) if log_path else None
-    reader_specific, _ = _get_reader(registry, source, log_path)
+    reader, log_path = _get_reader_from_config(registry)
 
     try:
-        if reader_specific:
-            full_id = reader_specific.resolve_session_id(session_id, p)
-            reader = reader_specific
-        else:
-            reader, full_id = registry.resolve(session_id)
+        full_id = reader.resolve_session_id(session_id, log_path)
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)

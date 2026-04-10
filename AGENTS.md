@@ -12,12 +12,16 @@ RetroLens is a lightweight CLI + SKILL that lets any general-purpose AI agent ex
 
 - **Entry point**: `retrolens` (installed via `pip install -e .`)
 - **Source**: `src/retrolens/` (flat package — no sub-packages except `readers/` and `skills/`)
-- **Tests**: `tests/` (134 tests, all passing)
+- **Tests**: `tests/`
 
 ## Key Commands
 
 ```bash
-retrolens scan                        # Discover sessions
+retrolens cfg set --path <dir>        # Set working log directory (auto-detects format)
+retrolens cfg set --source vscode     # Override source type
+retrolens cfg set --reader ./r.py     # Register custom reader
+retrolens cfg show                    # Show current working state
+retrolens ls                          # List sessions in configured path
 retrolens read <ID> --json            # Browse session data
 retrolens extract <ID> --json         # Extract workflow digest
 retrolens reflect <ID> --json         # Reflect on lessons
