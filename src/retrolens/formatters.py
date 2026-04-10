@@ -20,7 +20,6 @@ from .models import (
     TurnSummary,
 )
 
-
 # ── ANSI helpers ────────────────────────────────────────────────────────────
 
 class _C:

@@ -20,14 +20,12 @@ Project path encoding: / → -
 from __future__ import annotations
 
 import json
-import platform
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
 from .. import models
 from . import BaseReader
-
 
 # ── Default log paths per OS ────────────────────────────────────────────────
 

@@ -121,7 +121,7 @@ def _is_vscode_format(lines: list[dict]) -> bool:
             return True
 
     # Fallback: check if multiple lines have "kind" field
-    kind_count = sum(1 for l in lines if "kind" in l)
+    kind_count = sum(1 for line in lines if "kind" in line)
     return kind_count >= len(lines) * 0.5 and len(lines) >= 2
 
 

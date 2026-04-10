@@ -26,7 +26,7 @@ from typing import Optional
 import click
 
 from . import config, formatters
-from .detect import detect_format_for_dir, describe_detection
+from .detect import detect_format_for_dir
 from .readers import BaseReader, ReaderRegistry, create_default_registry, load_custom_reader
 
 

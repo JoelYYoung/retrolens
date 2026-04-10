@@ -21,7 +21,6 @@ import json
 from pathlib import Path
 from typing import Optional
 
-
 _CONFIG_DIR = ".retrolens"
 _CONFIG_FILE = "config.json"
 

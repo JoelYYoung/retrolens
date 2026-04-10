@@ -27,7 +27,6 @@ from typing import Any, Optional
 from .. import models
 from . import BaseReader
 
-
 # ── Default log paths per OS ────────────────────────────────────────────────
 
 def _default_vscode_paths() -> list[Path]:
