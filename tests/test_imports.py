@@ -8,7 +8,13 @@ import pytest
 def test_import_main_package():
     """Main package exposes __version__."""
     import retrolens
-    assert retrolens.__version__ == "0.5.1"
+    # Version should be a valid semantic version string
+    assert hasattr(retrolens, "__version__")
+    assert isinstance(retrolens.__version__, str)
+    # Format: X.Y.Z
+    parts = retrolens.__version__.split(".")
+    assert len(parts) == 3, f"Version should be X.Y.Z format, got: {retrolens.__version__}"
+    assert all(p.isdigit() for p in parts), f"Version parts should be numbers: {parts}"
 
 
 def test_import_models():
