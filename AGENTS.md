@@ -8,7 +8,7 @@
 
 ## Project Overview
 
-RetroLens is a lightweight CLI + SKILL that lets any general-purpose AI agent extract workflows and lessons from conversation logs.
+RetroLens is a lightweight CLI + SKILL that lets any general-purpose AI agent navigate and analyze conversation logs like a debugger.
 
 - **Entry point**: `retrolens` (installed via `pip install -e .`)
 - **Source**: `src/retrolens/` (flat package — no sub-packages except `readers/` and `skills/`)
@@ -23,17 +23,16 @@ retrolens cfg set --reader ./r.py     # Register custom reader
 retrolens cfg show                    # Show current working state
 retrolens ls                          # List sessions in configured path
 retrolens read <ID> --json            # Browse session data
-retrolens extract <ID> --json         # Extract workflow digest
-retrolens reflect <ID> --json         # Reflect on lessons
-retrolens show                        # View existing artifacts
+retrolens read <ID> --turn N          # Drill into specific turn
+retrolens read <ID> -t N --tool M     # Inspect tool call
 ```
 
 ## Conversation Analysis Skill
 
-Use `retrolens` CLI to analyze conversation logs and extract workflows.
-- Extract workflow: `retrolens extract <ID> --json`
-- Reflect on lessons: `retrolens reflect <ID> --json`
-- Browse session: `retrolens read <ID> --turn N`
+Use `retrolens` CLI to navigate conversation logs.
+- List sessions: `retrolens ls --json`
+- Browse session: `retrolens read <ID> --json`
+- Drill into turns: `retrolens read <ID> --turn N --json`
 - Full guide: `retrolens --skill-path`
 
 Always use `--json` for structured output when processing programmatically.

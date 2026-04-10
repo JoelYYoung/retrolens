@@ -1,13 +1,13 @@
 ---
 name: retrolens
-description: Navigate AI conversation logs like a debugger — extract workflows, generate LangGraph agents, and distill lessons learned
-version: 0.4.0
+description: Navigate AI conversation logs like a debugger
+version: 0.5.0
 tools: [retrolens]
 ---
 
-# RetroLens — AI Conversation Log Navigator & Workflow Extractor
+# RetroLens — AI Conversation Log Navigator
 
-Extract **reusable workflows**, **LangGraph agents**, and **lessons learned** from AI agent conversation logs. This skill guides you through debugger-style exploration, workflow identification, and experience distillation.
+Navigate AI agent conversation logs like a debugger. Point at a log directory, list sessions, then drill into turns, tool calls, and raw data.
 
 ## Quick Start
 
@@ -27,14 +27,14 @@ retrolens --skill-path
 ### `cfg` — Set Working State (Do This First) ⭐
 
 ```bash
-retrolens cfg set --path /path/to/logs   # Set log directory (persistent)
-retrolens cfg set --source vscode        # Set default source type
+retrolens cfg set --path /path/to/logs   # Set log directory (auto-detects format)
+retrolens cfg set --source vscode        # Override detected source type
+retrolens cfg set --reader ./reader.py   # Register a custom reader
 retrolens cfg show                       # View current config
 retrolens cfg clear                      # Reset to defaults
 ```
 
-Once set, all other commands (`ls`, `read`, `extract`, `reflect`) use this path
-and source automatically.
+Once set, all other commands (`ls`, `read`) use this path and source automatically.
 
 ### `ls` — List Sessions
 
@@ -58,37 +58,11 @@ retrolens read <ID> --diff 1,3    # Compare turns
 retrolens read <ID> --raw -t 1    # Raw JSON data
 ```
 
-### `extract` — Workflow Extraction ⭐⭐
-
-```bash
-retrolens extract <ID> --json           # Session digest for workflow analysis
-retrolens extract <ID> --max-turns 10   # Limit to first 10 turns
-retrolens extract --from-yaml <file>     # Parse existing workflow YAML
-retrolens extract --from-yaml <file> --langgraph  # Generate LangGraph code
-```
-
-### `reflect` — Lesson Extraction ⭐⭐
-
-```bash
-retrolens reflect <ID> --json            # Session digest with reflection hints
-retrolens reflect <ID> --focus errors     # Focus on errors & fixes
-retrolens reflect <ID> --focus practices  # Focus on effective practices
-retrolens reflect <ID> --focus traps      # Focus on environment traps
-```
-
-### `show` — View Existing Artifacts
-
-```bash
-retrolens show                    # All artifacts in .retrolens/
-retrolens show --type workflow    # Only workflow files
-retrolens show --type lessons     # Only lesson files
-```
-
 ---
 
-## Workflow A: Extract Workflow & Generate Agent ⭐⭐⭐
+## Workflow A: Analyze a Session & Extract Workflow ⭐⭐⭐
 
-**Goal**: Analyze a past session, identify the hidden workflow, write it as a YAML DSL, and optionally generate a LangGraph-based agent.
+**Goal**: Analyze a past session, identify the hidden workflow, and document it.
 
 ### Step-by-Step
 
@@ -98,15 +72,21 @@ retrolens show --type lessons     # Only lesson files
    ```
    Pick a session that accomplished a meaningful goal (look for sessions with >3 turns).
 
-2. **Get the session digest**:
+2. **Get the session overview**:
    ```bash
-   retrolens extract <ID> --json
+   retrolens read <ID> --json
    ```
-   This returns a structured digest with per-turn info: user messages, tools used, files touched, commands run.
+   This returns session info + per-turn summaries: user messages, tools used, error status.
 
-3. **Identify the goal**: Read the first user message. What was the overall objective? This becomes the workflow's `goal` field.
+3. **Drill into key turns**:
+   ```bash
+   retrolens read <ID> --turn N --json
+   ```
+   For each interesting turn, get full detail: user message, assistant response, tool calls with inputs/outputs, files touched, commands run.
 
-4. **Map phases**: Analyze the turn sequence and identify distinct phases:
+4. **Identify the goal**: Read the first user message. What was the overall objective?
+
+5. **Map phases**: Analyze the turn sequence and identify distinct phases:
 
    | Phase Pattern | Indicators |
    |------|------|
@@ -117,70 +97,28 @@ retrolens show --type lessons     # Only lesson files
    | **Iteration/Fix** | Repeated edits after errors, user corrections |
    | **Documentation** | `create_file` on .md files, `memory` tool usage |
 
-   Look for natural boundaries: topic shifts in user messages, tool usage pattern changes, or explicit phase transitions.
+   Look for natural boundaries: topic shifts in user messages, tool usage pattern changes.
 
-5. **For each phase, extract**:
-   - **Entry condition**: What triggered this phase? (user request, previous phase output, error)
-   - **Steps**: Ordered list of actions with tools used
-   - **Decision points**: Where the approach branched (e.g., "if tests fail → go back to implementation")
-   - **Exit condition**: What signals this phase is complete?
-   - **Source turns**: Which turn numbers map to this phase
+6. **Document the workflow** as YAML, markdown, or any format suitable for reuse.
 
-6. **Identify cross-cutting concerns**:
-   - **State variables**: What data flows between phases? (file list, test results, configuration)
-   - **Human checkpoints**: Where did the user need to approve/redirect?
-   - **Dependencies**: Which phases must complete before others can start?
+### Analysis Tips
 
-7. **Write the Workflow DSL** to `.retrolens/<name>.workflow.yaml`:
-   Use the template from `retrolens --skill-path` (look in `skills/templates/WORKFLOW_DSL_TEMPLATE.yaml`).
-
-   Key sections:
-   ```yaml
-   workflow:
-     name: "my-workflow"
-     goal: "What this workflow achieves"
-     inputs: ["what it needs"]
-     outputs: ["what it produces"]
-     phases:
-       - name: "research"
-         steps:
-           - description: "Read project structure"
-             tools: ["read_file", "list_dir"]
-   ```
-
-8. **Generate LangGraph code** (optional):
-   ```bash
-   retrolens extract --from-yaml .retrolens/<name>.workflow.yaml --langgraph
-   ```
-   This generates a Python file with:
-   - TypedDict state class
-   - Node functions for each phase
-   - Phase transition edges
-   - Tool stubs ready to implement
-
-### Workflow Analysis Tips
-
-- **Long sessions (>10 turns)**: Use sub-agents to process in batches. Have sub-agent 1 read turns 1-5, sub-agent 2 read turns 6-10, then synthesize.
-- **Repeated patterns**: If the same tool sequence appears 3+ times, that's a step worth extracting.
-- **User corrections**: When the user says "no, do X instead" — the correct path is what belongs in the workflow.
-- **Error-recovery loops**: If the agent retried something multiple times, the final successful approach is the one to document.
-- **Parallel opportunities**: If two steps don't depend on each other, they can run in parallel in the LangGraph graph.
+- **Long sessions (>10 turns)**: Use sub-agents to process in batches.
+- **Repeated patterns**: If the same tool sequence appears 3+ times, it's a step worth extracting.
+- **User corrections**: When the user says "no, do X instead" — the correct path is the one to document.
+- **Error-recovery loops**: The final successful approach is the one to keep.
 
 ---
 
 ## Workflow B: Reflect & Extract Lessons ⭐⭐⭐
 
-**Goal**: Analyze a session from a learning perspective — find errors, inefficiencies, good practices, and environment traps.
+**Goal**: Analyze a session from a learning perspective.
 
 ### Step-by-Step
 
-1. **Get the reflection digest**:
+1. **Read the session**:
    ```bash
-   retrolens reflect <ID> --json
-   ```
-   Or focus on a specific area:
-   ```bash
-   retrolens reflect <ID> --focus errors --json
+   retrolens read <ID> --json
    ```
 
 2. **Analyze each turn** through these lenses:
@@ -189,62 +127,39 @@ retrolens show --type lessons     # Only lesson files
    - Tool call failures
    - User corrections ("No, that's wrong...")
    - Multiple retries for the same thing
-   - Wrong file/path assumptions
 
    **🟡 Inefficiency Patterns** — What was wasteful?
-   - Reading files one by one instead of using grep/search
+   - Reading files one by one instead of grep/search
    - Exploring irrelevant code paths
-   - Not using `--json` flag (manual parsing instead)
-   - Repeated context gathering that could be cached
+   - Repeated context gathering
 
    **🟢 Effective Practices** — What worked well?
    - Smart tool selection (right tool for the job)
    - Progressive drilling (overview → detail)
-   - Parallel processing (sub-agents)
    - Clean commit/save points
 
    **⚠️ Environment & Tool Traps**
    - API rate limits or quota exhaustion
    - Network/proxy issues
    - Version incompatibilities
-   - Platform-specific paths or behaviors
 
    **📋 Agent Instructions**
-   - Rules the user stated explicitly ("always use X")
+   - Rules the user stated explicitly
    - Conventions discovered during the session
-   - Tool preferences that should persist
 
-3. **For each insight, record**:
-   - Category (error/inefficiency/practice/trap/instruction)
-   - Severity (critical/important/minor/info)
-   - Title (concise, searchable)
-   - Description (what happened)
-   - Evidence (which turns, what tools)
-   - Recommendation (what to do differently)
+3. **Write the output** to project notes, AGENTS.md, CLAUDE.md, or memory files.
 
-4. **Check existing lessons** to avoid duplicates:
-   ```bash
-   retrolens show --type lessons
-   ```
+### Reflection Tips
 
-5. **Write the output** to `.retrolens/LESSONS.md` using the REFLECTION_TEMPLATE.md template.
-
-6. **Extract AGENTS.md instructions**: Any lesson that is an explicit rule or convention should also be added to the project's AGENTS.md or equivalent instruction file.
-
-### Reflection Analysis Tips
-
-- **Compare early vs late turns**: The agent often improves its approach — document what changed and why.
-- **Count wasted turns**: If turns 3-7 were all failed attempts at one thing, that's a significant inefficiency.
-- **Look for "aha moments"**: When the user provides a key insight that changed the approach — this is valuable domain knowledge.
-- **Cross-reference with workflow**: Inefficiencies often reveal missing steps in the ideal workflow.
+- **Compare early vs late turns**: The agent often improves its approach — document what changed.
+- **Count wasted turns**: If turns 3-7 were all failed attempts, that's a significant inefficiency.
+- **Look for "aha moments"**: Key insights that changed the approach are valuable domain knowledge.
 
 ---
 
 ## Workflow C: Session Navigation (read-only)
 
-**Goal**: Explore a session in detail using the debugger-style read command.
-
-### Step-by-Step
+**Goal**: Explore a session in detail.
 
 1. List sessions: `retrolens ls --json`
 2. Overview: `retrolens read <ID>`
@@ -256,34 +171,13 @@ retrolens show --type lessons     # Only lesson files
 
 ## Workflow D: Cross-Session Pattern Mining
 
-**Goal**: Review multiple sessions to find recurring workflows and consolidate lessons.
-
-### Step-by-Step
+**Goal**: Review multiple sessions to find recurring patterns.
 
 1. **List recent sessions**: `retrolens ls --limit 10 --json`
-2. **Extract digests for each**: 
-   ```bash
-   retrolens extract <ID1> --json > /tmp/digest1.json
-   retrolens extract <ID2> --json > /tmp/digest2.json
-   ```
+2. **Read each session**: `retrolens read <ID> --json`
 3. **Compare tool usage patterns** across sessions
 4. **Identify recurring phases** that appear in multiple sessions
 5. **Create a generalized workflow** that captures the common pattern
-6. **Update LESSONS.md** with cross-session insights
-
----
-
-## Output Templates
-
-Templates are in the `skills/templates/` directory alongside this SKILL.md:
-
-| Template | Purpose |
-|------|------|
-| `WORKFLOW_DSL_TEMPLATE.yaml` | Workflow DSL structure for `extract` |
-| `LANGGRAPH_TEMPLATE.py` | Reference LangGraph code structure |
-| `WORKFLOW_TEMPLATE.md` | Human-readable workflow documentation |
-| `LESSONS_TEMPLATE.md` | Lessons learned output |
-| `REFLECTION_TEMPLATE.md` | Full reflection report |
 
 ---
 
@@ -292,7 +186,7 @@ Templates are in the `skills/templates/` directory alongside this SKILL.md:
 ### Data Flow
 
 ```
-cfg set → ls → pick session → extract/reflect → digest (JSON) → agent analysis → output files
+cfg set → ls → pick session → read --json → agent analysis → output files
 ```
 
 ### Key Rules
@@ -309,45 +203,26 @@ cfg set → ls → pick session → extract/reflect → digest (JSON) → agent 
    ls → overview → interesting turns → tool details
    ```
 
-4. **For extract, use `--max-turns`** on very long sessions to avoid overwhelming context.
+4. **For long sessions (>10 turns)**, use sub-agents to process in parallel:
+   - Sub-agent 1: `read <ID> --turns 1-5 --json`
+   - Sub-agent 2: `read <ID> --turns 6-10 --json`
+   - Main agent: Synthesize into unified analysis
 
-5. **For reflect, use `--focus`** to narrow the analysis scope.
-
-6. **Workflow DSL → LangGraph is two steps**:
-   ```bash
-   # Step 1: Agent fills in YAML DSL from digest
-   # Step 2: CLI generates code
-   retrolens extract --from-yaml .retrolens/my.workflow.yaml --langgraph
-   ```
-
-7. **For long sessions (>10 turns)**, use sub-agents to process in parallel:
-   - Sub-agent 1: `extract <ID> --max-turns 5 --json` → summarize phases 
-   - Sub-agent 2: `read <ID> --turns 6-10` → summarize phases
-   - Main agent: Synthesize into unified workflow
-
-8. **Check before writing**: Always `retrolens show` first to read existing artifacts and avoid duplicates.
+5. **Use `latest`** keyword: `retrolens read latest --json`
 
 ### Platform Integration
 
 **VS Code Copilot Chat**: Add to AGENTS.md:
 ```
 Use `retrolens` CLI to analyze conversation logs.
-Key commands: extract (workflow), reflect (lessons), read (navigation).
+Key commands: cfg set (point at logs), ls (list), read (navigate).
 Always use --json for structured output.
-Run `retrolens --skill-path` for full SKILL.md.
 ```
 
 **Claude Code**: Add to CLAUDE.md:
 ```
-Use `retrolens` CLI to extract workflows and lessons from conversation logs.
+Use `retrolens` CLI to navigate conversation logs.
 See: retrolens --skill-path
-```
-
-**Cursor**: Add to .cursorrules:
-```
-When reviewing past sessions, use the retrolens CLI.
-Commands: cfg, ls, extract, reflect, read, show.
-Always use --json flag for structured output.
 ```
 
 ---
@@ -363,8 +238,8 @@ Always use --json flag for structured output.
 All platforms store sessions **per-project**. Use `retrolens cfg set --path <dir>` to point at a specific log directory.
 
 > **Note**: Log storage paths change across platform versions. If `ls` returns nothing,
-> consult the **Discovery Skill** (`DISCOVERY.md` bundled alongside this file) for exploration
-> strategies to locate logs on your system.
+> consult the **Discovery Skill** (`DISCOVERY.md` bundled alongside this file) for
+> exploration strategies to locate logs on your system.
 
 ### Adding New Log Formats
 
@@ -372,4 +247,4 @@ For unsupported platforms, see the **Discovery Skill** (`DISCOVERY.md`). It teac
 1. Explore the filesystem to find log files
 2. Sample and identify the format
 3. Write a custom reader following the `BaseReader` interface
-4. Register it with the reader registry
+4. Register it via `retrolens cfg set --reader <path.py>`

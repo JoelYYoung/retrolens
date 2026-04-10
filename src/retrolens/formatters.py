@@ -12,17 +12,12 @@ import json
 from typing import Any
 
 from .models import (
-    ArtifactInfo,
     DiffResult,
-    ReflectionResult,
-    SessionDigest,
     SessionInfo,
     SessionOverview,
     ToolCallDetail,
     TurnDetail,
-    TurnDigest,
     TurnSummary,
-    WorkflowDSL,
 )
 
 
@@ -275,176 +270,6 @@ def format_diff(diff: DiffResult, as_json: bool = False) -> str:
         lines.append(f"\n{_C.GREEN}Files only in turn {diff.turn_b}:{_C.RESET}")
         for fp in diff.files_only_in_b:
             lines.append(f"  + {fp}")
-
-    return "\n".join(lines)
-
-
-# ── Show artifacts ──────────────────────────────────────────────────────────
-
-def format_artifacts(artifacts: list[ArtifactInfo], as_json: bool = False) -> str:
-    if as_json:
-        return _json_out(artifacts)
-
-    if not artifacts:
-        return f"{_C.DIM}No artifacts found in .retrolens/{_C.RESET}"
-
-    lines = [f"{_C.BOLD}Artifacts in .retrolens/:{_C.RESET}", ""]
-    for a in artifacts:
-        mod = a.last_modified.strftime("%Y-%m-%d %H:%M") if a.last_modified else "?"
-        size_kb = a.size_bytes / 1024
-        lines.append(
-            f"  {_C.CYAN}{a.path}{_C.RESET} "
-            f"({a.type}, {size_kb:.1f}KB, modified {mod})"
-        )
-        if a.preview:
-            lines.append(f"    {_C.DIM}{_truncate(a.preview, 100)}{_C.RESET}")
-        lines.append("")
-
-    return "\n".join(lines)
-
-
-# ── Session Digest (extract/reflect data prep) ─────────────────────────────
-
-def format_session_digest(digest: SessionDigest, as_json: bool = False) -> str:
-    if as_json:
-        return _json_out(digest)
-
-    date_str = digest.date.strftime("%Y-%m-%d %H:%M") if digest.date else "?"
-
-    lines = [
-        f"{_C.BOLD}=== Session Digest: {digest.session_id[:12]} ==={_C.RESET}",
-        f"Title: {digest.title} | Date: {date_str} | Model: {digest.model}",
-        f"Total Turns: {digest.total_turns}",
-        "",
-    ]
-
-    # Tools summary
-    if digest.all_tools_used:
-        lines.append(f"{_C.BOLD}Tools Used (top 10):{_C.RESET}")
-        for t in sorted(digest.all_tools_used, key=lambda x: -x.call_count)[:10]:
-            lines.append(f"  {t.tool_name}: {t.call_count}×")
-        lines.append("")
-
-    # Turn-by-turn digest
-    lines.append(f"{_C.BOLD}Turn Digest:{_C.RESET}")
-    for td in digest.turns:
-        user_preview = _truncate(td.user_message, 100)
-        tools_str = ", ".join(td.tools_used[:5])
-        if len(td.tools_used) > 5:
-            tools_str += f" +{len(td.tools_used)-5}"
-
-        lines.append(f"  {_C.GREEN}#{td.turn_number:<3}{_C.RESET} {user_preview}")
-        if tools_str:
-            lines.append(f"       {_C.DIM}Tools: [{tools_str}]{_C.RESET}")
-        if td.files_touched:
-            files_str = ", ".join(td.files_touched[:3])
-            if len(td.files_touched) > 3:
-                files_str += f" +{len(td.files_touched)-3}"
-            lines.append(f"       {_C.DIM}Files: {files_str}{_C.RESET}")
-        if td.assistant_summary:
-            lines.append(f"       {_C.DIM}→ {_truncate(td.assistant_summary, 80)}{_C.RESET}")
-        lines.append("")
-
-    return "\n".join(lines)
-
-
-# ── Workflow DSL ────────────────────────────────────────────────────────────
-
-def format_workflow_dsl(workflow: WorkflowDSL, as_json: bool = False) -> str:
-    if as_json:
-        return _json_out(workflow)
-
-    lines = [
-        f"{_C.BOLD}=== Workflow: {workflow.name} ==={_C.RESET}",
-        f"Goal: {workflow.goal}",
-        f"Source: {workflow.source_session_id[:12]}... ({workflow.source_title})",
-        "",
-    ]
-
-    if workflow.inputs:
-        lines.append(f"{_C.BOLD}Inputs:{_C.RESET}")
-        for inp in workflow.inputs:
-            lines.append(f"  • {inp}")
-        lines.append("")
-
-    if workflow.outputs:
-        lines.append(f"{_C.BOLD}Outputs:{_C.RESET}")
-        for out in workflow.outputs:
-            lines.append(f"  • {out}")
-        lines.append("")
-
-    for phase in workflow.phases:
-        lines.append(f"{_C.BOLD}{_C.CYAN}Phase {phase.phase_number}: {phase.name}{_C.RESET}")
-        if phase.description:
-            lines.append(f"  {phase.description}")
-        if phase.entry_condition:
-            lines.append(f"  {_C.DIM}Entry: {phase.entry_condition}{_C.RESET}")
-        if phase.exit_condition:
-            lines.append(f"  {_C.DIM}Exit: {phase.exit_condition}{_C.RESET}")
-
-        for step in phase.steps:
-            tools_str = ", ".join(t.tool_name for t in step.tools_used)
-            lines.append(f"    {step.step_number}. {step.description}")
-            if tools_str:
-                lines.append(f"       {_C.DIM}Tools: {tools_str}{_C.RESET}")
-            if step.decision_point:
-                lines.append(f"       {_C.YELLOW}Decision: {step.decision_point}{_C.RESET}")
-        lines.append("")
-
-    if workflow.dependencies:
-        lines.append(f"{_C.BOLD}Dependencies:{_C.RESET}")
-        for dep in workflow.dependencies:
-            lines.append(f"  → {dep}")
-        lines.append("")
-
-    return "\n".join(lines)
-
-
-# ── Reflection ──────────────────────────────────────────────────────────────
-
-def format_reflection(reflection: ReflectionResult, as_json: bool = False) -> str:
-    if as_json:
-        return _json_out(reflection)
-
-    date_str = reflection.date.strftime("%Y-%m-%d") if reflection.date else "?"
-    goal_icon = f"{_C.GREEN}✓{_C.RESET}" if reflection.goal_achieved else f"{_C.RED}✗{_C.RESET}"
-
-    lines = [
-        f"{_C.BOLD}=== Reflection: {reflection.title} ==={_C.RESET}",
-        f"Session: {reflection.session_id[:12]} | Date: {date_str}",
-        f"Goal: {goal_icon} {reflection.goal_summary}",
-        "",
-        f"{_C.BOLD}Workflow Summary:{_C.RESET}",
-        f"  {reflection.workflow_summary}",
-        "",
-    ]
-
-    categories = [
-        ("🔴 Errors & Fixes", reflection.errors, _C.RED),
-        ("🟡 Inefficiency Patterns", reflection.inefficiencies, _C.YELLOW),
-        ("🟢 Effective Practices", reflection.good_practices, _C.GREEN),
-        ("⚠️  Environment & Tool Traps", reflection.traps, _C.YELLOW),
-    ]
-
-    for cat_title, insights, color in categories:
-        if not insights:
-            continue
-        lines.append(f"{_C.BOLD}{cat_title}{_C.RESET}")
-        for ins in insights:
-            lines.append(f"  {color}[{ins.severity}]{_C.RESET} {_C.BOLD}{ins.title}{_C.RESET}")
-            lines.append(f"    {ins.description}")
-            if ins.recommendation:
-                lines.append(f"    {_C.DIM}→ {ins.recommendation}{_C.RESET}")
-            if ins.source_turns:
-                turns_str = ", ".join(str(t) for t in ins.source_turns)
-                lines.append(f"    {_C.DIM}Turns: {turns_str}{_C.RESET}")
-        lines.append("")
-
-    if reflection.instructions:
-        lines.append(f"{_C.BOLD}📋 Recommended Agent Instructions:{_C.RESET}")
-        for inst in reflection.instructions:
-            lines.append(f"  {inst}")
-        lines.append("")
 
     return "\n".join(lines)
 
