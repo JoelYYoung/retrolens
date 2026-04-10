@@ -1,7 +1,7 @@
 ---
 name: retrolens
-description: Navigate AI conversation logs like a debugger
-version: 0.5.0
+description: "Navigate AI conversation logs like a debugger. Use when: analyzing past sessions, understanding what happened in a conversation, extracting workflows and lessons from session data."
+argument-hint: "Session ID or 'latest' to analyze"
 tools: [retrolens]
 ---
 
@@ -13,6 +13,7 @@ Navigate AI agent conversation logs like a debugger. Point at a log directory, l
 
 ```bash
 pip install retrolens  # or: uv pip install retrolens
+retrolens --version    # verify
 ```
 
 ---
@@ -38,10 +39,6 @@ retrolens ls                          # List sessions from configured path
 retrolens ls --limit 10 --json        # JSON output (for agents)
 ```
 
-> **Prerequisite**: Run `retrolens cfg set --path <dir>` first. If you don't
-> know where logs are, consult the **Discovery Skill** (`DISCOVERY.md` bundled
-> with retrolens) for exploration strategies.
-
 ### `read` — Navigate Session (Debugger ⭐)
 
 ```bash
@@ -55,33 +52,147 @@ retrolens read <ID> --raw -t 1    # Raw JSON data
 
 ---
 
-## Workflow A: Analyze a Session & Extract Workflow ⭐⭐⭐
+## Workflow A: Build & Validate a Custom Reader ⭐⭐⭐
 
-**Goal**: Analyze a past session, identify the hidden workflow, and document it.
+**Goal**: Add support for a new agent log format (e.g., a new IDE, a custom agent framework).
+
+### Step 1: Understand the Log Format
+
+1. **Find sample log files** — locate 2-3 session files from the target platform.
+2. **Identify the structure** — is it JSONL (one event per line), single JSON, SQLite, or something else?
+3. **Map the key data** — for each session, you need to extract:
+
+   | RetroLens Model | What to Find in Raw Logs |
+   |------|------|
+   | `SessionInfo` | Session ID, date, model name, title, turn count |
+   | `TurnSummary` | Per-turn: user message preview, tool names, tool count |
+   | `TurnDetail` | Full user message, assistant response, tool calls, files touched, commands run |
+   | `ToolCallDetail` | Tool name, tool ID, input (full + preview), output (full + preview), success status |
+
+### Step 2: Implement the Reader
+
+Create a Python file that subclasses `BaseReader`:
+
+```python
+from pathlib import Path
+from retrolens.readers import BaseReader
+from retrolens import models
+
+class MyPlatformReader(BaseReader):
+    source_type = "myplatform"  # used with: retrolens cfg set --source myplatform
+
+    def scan(self, path: Path | None = None) -> list[models.SessionInfo]:
+        """Discover sessions at the given path. Return SessionInfo list."""
+        ...
+
+    def get_overview(self, session_id: str) -> models.SessionOverview:
+        """Parse session → metadata + per-turn summaries."""
+        ...
+
+    def get_turn(self, session_id: str, turn_number: int) -> models.TurnDetail:
+        """Parse full turn detail including tool calls."""
+        ...
+
+    # Optional overrides (have default implementations):
+    # get_turns_range(), get_turn_tool(), get_turn_raw(), diff_turns()
+```
+
+**Key models to populate** (from `retrolens.models`):
+
+- `SessionInfo(session_id, source_type, date, model, title, turns_count)`
+- `SessionOverview(info=SessionInfo, turns=[TurnSummary, ...])`
+- `TurnSummary(turn_number, user_message_preview, tools_count, tool_names, has_error)`
+- `TurnDetail(turn_number, user_message, assistant_response, tool_calls, files_touched, commands_run, timestamp, model)`
+- `ToolCallDetail(index, tool_name, tool_id, input_preview, input_full, output_preview, output_full, success, invocation_message)`
+
+### Step 3: Validate ✅
+
+**Always run a verification loop after implementing or modifying a reader.**
+
+1. **Register and test**:
+   ```bash
+   retrolens cfg set --path /path/to/logs --reader ./my_reader.py
+   retrolens ls --json                    # Should list sessions
+   retrolens read <ID> --json             # Should show overview
+   retrolens read <ID> --turn 1 --json    # Should show turn detail
+   ```
+
+2. **Cross-check against raw data**:
+   ```bash
+   retrolens read <ID> --turn 1 --json > /tmp/parsed.json
+   retrolens read <ID> --turn 1 --raw  > /tmp/raw.json
+   # Compare: do tool counts match? Are tool names populated?
+   ```
+
+3. **Field-level checklist** — verify for at least 2-3 turns:
+   - [ ] `tool_name` is populated (not empty string) for all tool calls
+   - [ ] `tool_calls` count matches raw data
+   - [ ] `files_touched` lists actual file paths
+   - [ ] `user_message` and `assistant_response` are non-empty
+   - [ ] Timestamps parse correctly (not null when raw data has them)
+   - [ ] `input_full` / `output_full` contain the actual data
+
+4. **Spot-check edge cases**:
+   - Turns with 0 tool calls
+   - Turns with very long outputs (>100KB)
+   - Sessions with only 1 turn
+   - Tool calls with nested/complex inputs
+
+5. **Run the test suite** (if adding to retrolens core):
+   ```bash
+   python -m pytest tests/ -v
+   ```
+
+> **Common pitfall**: Field names in `--json` output (e.g., `tool_name`) differ
+> from raw log fields (e.g., VS Code uses `toolId`). Always verify against the
+> actual parsed output, not assumptions about field names.
+
+### Step 4: Register for Permanent Use
+
+For a standalone `.py` file:
+```bash
+retrolens cfg set --reader /path/to/my_reader.py
+```
+
+To contribute to retrolens core:
+1. Add `src/retrolens/readers/my_platform.py`
+2. Register in `create_default_registry()` in `readers/__init__.py`
+3. Add test fixtures and tests
+
+---
+
+## Workflow B: Analyze a Session ⭐⭐⭐
+
+**Goal**: Analyze a past session to understand what happened, identify phases, and extract the workflow.
 
 ### Step-by-Step
 
-1. **Find the target session**:
+1. **Point at logs** (one-time setup):
+   ```bash
+   retrolens cfg set --path <log-dir>   # auto-detects format
+   ```
+
+2. **List sessions**:
    ```bash
    retrolens ls --json
    ```
-   Pick a session that accomplished a meaningful goal (look for sessions with >3 turns).
+   Pick a session with >3 turns that accomplished a meaningful goal.
 
-2. **Get the session overview**:
+3. **Get overview**:
    ```bash
    retrolens read <ID> --json
    ```
-   This returns session info + per-turn summaries: user messages, tools used, error status.
+   Returns session info + per-turn summaries: user messages, tools used, error status.
 
-3. **Drill into key turns**:
+4. **Drill into key turns**:
    ```bash
-   retrolens read <ID> --turn N --json
+   retrolens read <ID> --turn N --json    # Full turn detail
+   retrolens read <ID> -t N --tool M      # Specific tool call
+   retrolens read <ID> --turns 1-5 --json # Range of turns
+   retrolens read <ID> --diff 1,5 --json  # Compare two turns
    ```
-   For each interesting turn, get full detail: user message, assistant response, tool calls with inputs/outputs, files touched, commands run.
 
-4. **Identify the goal**: Read the first user message. What was the overall objective?
-
-5. **Map phases**: Analyze the turn sequence and identify distinct phases:
+5. **Map phases** — identify distinct workflow stages:
 
    | Phase Pattern | Indicators |
    |------|------|
@@ -92,69 +203,44 @@ retrolens read <ID> --raw -t 1    # Raw JSON data
    | **Iteration/Fix** | Repeated edits after errors, user corrections |
    | **Documentation** | `create_file` on .md files, `memory` tool usage |
 
-   Look for natural boundaries: topic shifts in user messages, tool usage pattern changes.
+6. **Document the workflow** as markdown, YAML, or any reusable format.
 
-6. **Document the workflow** as YAML, markdown, or any format suitable for reuse.
-
-### Analysis Tips
+### Tips
 
 - **Long sessions (>10 turns)**: Use sub-agents to process in batches.
-- **Repeated patterns**: If the same tool sequence appears 3+ times, it's a step worth extracting.
-- **User corrections**: When the user says "no, do X instead" — the correct path is the one to document.
-- **Error-recovery loops**: The final successful approach is the one to keep.
+- **Repeated patterns**: Same tool sequence 3+ times → extract as a step.
+- **User corrections**: "No, do X instead" → the corrected path is the one to document.
+- **Error-recovery loops**: The final successful approach is what matters.
 
 ---
 
-## Workflow B: Reflect & Extract Lessons ⭐⭐⭐
+## Workflow C: Reflect & Extract Lessons ⭐⭐⭐
 
-**Goal**: Analyze a session from a learning perspective and produce actionable lessons.
+**Goal**: Analyze a session from a learning perspective and produce actionable lessons for both humans and agents.
 
-### Step-by-Step
+### Step 1: Analyze
 
-1. **Read the session**:
-   ```bash
-   retrolens read <ID> --json
-   ```
+Read the session with `retrolens read <ID> --json` and analyze each turn through these lenses:
 
-2. **Analyze each turn** through these lenses:
+| Lens | What to Look For |
+|------|------|
+| 🔴 **Errors & Fixes** | Tool failures, user corrections, multiple retries |
+| 🟡 **Inefficiency** | File-by-file reads instead of grep, irrelevant exploration, repeated context gathering |
+| 🟢 **Effective Practices** | Smart tool selection, progressive drilling, clean commit points |
+| ⚠️ **Environment Traps** | API limits, network issues, version incompatibilities |
+| 📋 **Agent Directives** | Explicit rules the user stated, conventions discovered |
 
-   **🔴 Errors & Fixes** — What went wrong?
-   - Tool call failures
-   - User corrections ("No, that's wrong...")
-   - Multiple retries for the same thing
+### Step 2: Categorize into Two Types
 
-   **🟡 Inefficiency Patterns** — What was wasteful?
-   - Reading files one by one instead of grep/search
-   - Exploring irrelevant code paths
-   - Repeated context gathering
+#### 🧑 Human Lessons — Help humans interact with agents better
 
-   **🟢 Effective Practices** — What worked well?
-   - Smart tool selection (right tool for the job)
-   - Progressive drilling (overview → detail)
-   - Clean commit/save points
-
-   **⚠️ Environment & Tool Traps**
-   - API rate limits or quota exhaustion
-   - Network/proxy issues
-   - Version incompatibilities
-
-   **📋 Agent Instructions**
-   - Rules the user stated explicitly
-   - Conventions discovered during the session
-
-3. **Categorize lessons into two types**:
-
-### 🧑 Human-Facing Lessons
-
-Insights that help the **human** interact with agents more effectively:
-
-- **Prompt quality**: Which phrasing led to correct results vs. confusion?
+- **Prompt quality**: Which phrasing worked first try vs. caused confusion?
 - **Context provision**: What upfront context (files, docs, examples) saved turns?
 - **Task decomposition**: Which requests were too large and should be split?
-- **Correction patterns**: What did the user have to repeatedly fix?
-- **Expectation gaps**: Where did the agent's output diverge from what the human wanted?
+- **Correction patterns**: What did the user repeatedly have to fix?
+- **Expectation gaps**: Where did agent output diverge from what was wanted?
 
-**Output format**: Write to project notes, team runbooks, or personal reference docs.
+**Output**: project notes, team runbooks, personal reference docs.
 
 **Example**:
 ```markdown
@@ -164,15 +250,13 @@ Insights that help the **human** interact with agents more effectively:
 - Agent handles single-file refactors well but struggles with cross-module renames
 ```
 
-### 🤖 Agent-Facing Lessons (LESSONS.md)
-
-Reusable directives that improve **future agent sessions** when included as prompt context:
+#### 🤖 Agent Lessons — Reusable directives for future sessions
 
 - **Project conventions**: Coding style, naming, file structure, import order
-- **Environment gotchas**: Proxy settings, API quirks, version constraints, auth requirements
+- **Environment gotchas**: Proxy settings, API quirks, version constraints
 - **Sequencing rules**: "Always run tests after editing" / "Build before deploy"
 - **Tool heuristics**: "Use `grep_search` for exact strings, `semantic_search` for concepts"
-- **Known pitfalls**: "The CI config uses tabs not spaces" / "Python 3.10 minimum"
+- **Known pitfalls**: "CI uses tabs not spaces" / "Python 3.10 minimum"
 
 **Output targets** (pick one or more):
 - `AGENTS.md` — VS Code Copilot agent instructions
@@ -192,82 +276,14 @@ Reusable directives that improve **future agent sessions** when included as prom
 
 ### Reflection Tips
 
-- **Compare early vs late turns**: The agent often improves its approach — document what changed.
-- **Count wasted turns**: If turns 3-7 were all failed attempts, that's a significant inefficiency.
-- **Look for "aha moments"**: Key insights that changed the approach are valuable domain knowledge.
-- **Separate the audiences**: A lesson about "give the agent more context" is for the human; a lesson about "always check file exists before editing" is for the agent.
+- **Compare early vs late turns**: The agent often improves — document what changed.
+- **Count wasted turns**: Turns 3-7 all failed? That's a significant inefficiency worth noting.
+- **Look for "aha moments"**: Insights that changed the approach are valuable domain knowledge.
+- **Separate audiences**: "Give the agent more context" → human lesson. "Always check file exists before editing" → agent lesson.
 
 ---
 
-## Workflow C: Session Navigation (read-only)
-
-**Goal**: Explore a session in detail.
-
-1. List sessions: `retrolens ls --json`
-2. Overview: `retrolens read <ID>`
-3. Drill into interesting turns: `retrolens read <ID> --turn N`
-4. Inspect specific tool calls: `retrolens read <ID> -t N --tool M`
-5. Compare turns: `retrolens read <ID> --diff 1,3`
-
----
-
-## Workflow D: Validate a Custom Reader / Parser
-
-**Goal**: Ensure a new or modified log reader correctly extracts all fields.
-
-When building or modifying a log reader, always run a verification loop:
-
-### Step-by-Step
-
-1. **Parse a known session**:
-   ```bash
-   retrolens read <ID> --turn 1 --json > /tmp/parsed.json
-   ```
-
-2. **Get the raw source data** for comparison:
-   ```bash
-   retrolens read <ID> --turn 1 --raw > /tmp/raw.json
-   ```
-
-3. **Cross-check critical fields**:
-   ```bash
-   # Verify tool names are populated
-   cat /tmp/parsed.json | python3 -c "
-   import json, sys; d = json.load(sys.stdin)
-   tools = d['tool_calls']
-   empty = [t for t in tools if not t['tool_name']]
-   print(f'Tools: {len(tools)} total, {len(empty)} missing name')
-   assert len(empty) == 0, 'Bug: some tool_name fields are empty'
-   "
-   ```
-
-   Checklist:
-   - [ ] `tool_name` is populated (not empty string) for all tool calls
-   - [ ] `tool_calls` count matches number of tool invocations in raw data
-   - [ ] `files_touched` lists actual file paths
-   - [ ] `user_message` and `assistant_response` are non-empty
-   - [ ] Timestamps parse correctly (not null when raw data has them)
-   - [ ] `input_full` and `output_full` contain the actual data
-
-4. **Run the test suite**:
-   ```bash
-   python -m pytest tests/ -v
-   ```
-
-5. **Spot-check edge cases**:
-   - Turns with 0 tool calls
-   - Turns with very long tool outputs (>100KB)
-   - Sessions with only 1 turn
-   - Tool calls with nested/complex inputs
-
-> **Common pitfall**: Field names in RetroLens `--json` output (e.g., `tool_name`,
-> `tool_calls`) differ from the raw log format fields (e.g., VS Code uses `toolId`,
-> `toolInvocationSerialized`). Always check the actual schema when writing scripts
-> against the parsed output.
-
----
-
-## Workflow E: Cross-Session Pattern Mining
+## Workflow D: Cross-Session Pattern Mining
 
 **Goal**: Review multiple sessions to find recurring patterns.
 
@@ -279,12 +295,12 @@ When building or modifying a log reader, always run a verification loop:
 
 ---
 
-## For AI Agents — Best Practices
+## Best Practices
 
 ### Data Flow
 
 ```
-cfg set → ls → pick session → read --json → agent analysis → output files
+cfg set → ls → pick session → read --json → agent analysis → output
 ```
 
 ### Key Rules
@@ -304,23 +320,9 @@ cfg set → ls → pick session → read --json → agent analysis → output fi
 4. **For long sessions (>10 turns)**, use sub-agents to process in parallel:
    - Sub-agent 1: `read <ID> --turns 1-5 --json`
    - Sub-agent 2: `read <ID> --turns 6-10 --json`
-   - Main agent: Synthesize into unified analysis
+   - Main agent: Synthesize
 
 5. **Use `latest`** keyword: `retrolens read latest --json`
-
-### Platform Integration
-
-**VS Code Copilot Chat**: Add to AGENTS.md:
-```
-Use `retrolens` CLI to analyze conversation logs.
-Key commands: cfg set (point at logs), ls (list), read (navigate).
-Always use --json for structured output.
-```
-
-**Claude Code**: Add to CLAUDE.md:
-```
-Use `retrolens` CLI to navigate conversation logs.
-```
 
 ---
 
@@ -334,14 +336,23 @@ Use `retrolens` CLI to navigate conversation logs.
 
 All platforms store sessions **per-project**. Use `retrolens cfg set --path <dir>` to point at a specific log directory.
 
-> **Note**: Log storage paths change across platform versions. If `ls` returns nothing,
-> consult the **Discovery Skill** (`DISCOVERY.md` bundled alongside this file) for
-> exploration strategies to locate logs on your system.
-
 ### Adding New Log Formats
 
-For unsupported platforms, see the **Discovery Skill** (`DISCOVERY.md`). It teaches agents how to:
-1. Explore the filesystem to find log files
-2. Sample and identify the format
-3. Write a custom reader following the `BaseReader` interface
-4. Register it via `retrolens cfg set --reader <path.py>`
+Follow **Workflow A** above. For filesystem exploration strategies to locate
+unknown log files, see the **Discovery Skill** (`DISCOVERY.md` bundled alongside
+this file).
+
+### Platform Integration
+
+**VS Code Copilot Chat** — Add to `AGENTS.md`:
+```
+Use `retrolens` CLI to navigate conversation logs.
+Key commands: cfg set (point at logs), ls (list), read (navigate).
+Always use --json for structured output.
+```
+
+**Claude Code** — Add to `CLAUDE.md`:
+```
+Use `retrolens` CLI to navigate conversation logs.
+Key commands: cfg set, ls, read. Always use --json.
+```
