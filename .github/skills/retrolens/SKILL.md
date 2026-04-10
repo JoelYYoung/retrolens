@@ -73,7 +73,23 @@ retrolens --version    # verify
    - 🟢 **Effective Practices** — smart tool selection, progressive drilling
    - ⚠️ **Environment Traps** — API limits, network issues, version compat
    - 📋 **Agent Directives** — explicit rules the user stated
-3. **Write output** to project notes, AGENTS.md, or memory files
+3. **Categorize lessons into two types**:
+
+   **🧑 Human Lessons** — Help humans interact with agents more effectively:
+   - What prompt phrasing led to better results?
+   - Where did ambiguous instructions cause wasted turns?
+   - What context (files, docs, examples) should humans provide upfront?
+   - Which tasks are better split into smaller requests?
+   - Write to: project notes, team docs, or personal notes.
+
+   **🤖 Agent Lessons** — Reusable directives for future agent sessions:
+   - Project-specific conventions (coding style, file structure, naming)
+   - Environment gotchas (proxy settings, API quirks, version constraints)
+   - "Always do X before Y" rules discovered through trial and error
+   - Tool selection heuristics that worked (e.g., "use grep before semantic_search for exact strings")
+   - Write to: `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, or memory files.
+
+4. **Write output** — Keep the two categories separate for clarity
 
 ## Workflow C: Cross-Session Mining
 
@@ -82,6 +98,37 @@ retrolens ls --limit 10 --json
 # For each relevant session: read --json, analyze, compare
 # Synthesize findings into consolidated lessons
 ```
+
+## Workflow D: Validate a Custom Reader / Parser
+
+When building or modifying a log reader, always verify correctness:
+
+1. **Run the reader** against a known session:
+   ```bash
+   retrolens read <ID> --turn 1 --json > /tmp/parsed.json
+   ```
+2. **Read the raw source** for comparison:
+   ```bash
+   retrolens read <ID> --turn 1 --raw > /tmp/raw.json
+   ```
+3. **Cross-check critical fields**:
+   - `tool_name` is populated (not empty string)
+   - `tool_calls` count matches raw data
+   - `files_touched` lists real file paths
+   - `user_message` and `assistant_response` are non-empty
+   - Timestamps parse correctly
+4. **Run the test suite** after any parser change:
+   ```bash
+   python -m pytest tests/ -v
+   ```
+5. **Spot-check with the original JSONL** if anything looks wrong:
+   ```bash
+   # Example: verify tool count in raw JSONL
+   cat <session.jsonl> | python3 -c "import sys,json; ..."
+   ```
+
+> **Common pitfall**: JSON field names from `--json` output (e.g., `tool_name`) may
+> differ from raw JSONL fields (e.g., `toolId`). Always check the actual schema.
 
 ## Best Practices
 

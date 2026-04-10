@@ -107,7 +107,7 @@ retrolens read <ID> --raw -t 1    # Raw JSON data
 
 ## Workflow B: Reflect & Extract Lessons ⭐⭐⭐
 
-**Goal**: Analyze a session from a learning perspective.
+**Goal**: Analyze a session from a learning perspective and produce actionable lessons.
 
 ### Step-by-Step
 
@@ -142,13 +142,60 @@ retrolens read <ID> --raw -t 1    # Raw JSON data
    - Rules the user stated explicitly
    - Conventions discovered during the session
 
-3. **Write the output** to project notes, AGENTS.md, CLAUDE.md, or memory files.
+3. **Categorize lessons into two types**:
+
+### 🧑 Human-Facing Lessons
+
+Insights that help the **human** interact with agents more effectively:
+
+- **Prompt quality**: Which phrasing led to correct results vs. confusion?
+- **Context provision**: What upfront context (files, docs, examples) saved turns?
+- **Task decomposition**: Which requests were too large and should be split?
+- **Correction patterns**: What did the user have to repeatedly fix?
+- **Expectation gaps**: Where did the agent's output diverge from what the human wanted?
+
+**Output format**: Write to project notes, team runbooks, or personal reference docs.
+
+**Example**:
+```markdown
+## Human Lessons — Session abc123
+- Providing the test fixture path upfront saved 3 exploration turns
+- "Fix the bug" was too vague → "Fix the TypeError in auth.py line 42" worked first try
+- Agent handles single-file refactors well but struggles with cross-module renames
+```
+
+### 🤖 Agent-Facing Lessons (LESSONS.md)
+
+Reusable directives that improve **future agent sessions** when included as prompt context:
+
+- **Project conventions**: Coding style, naming, file structure, import order
+- **Environment gotchas**: Proxy settings, API quirks, version constraints, auth requirements
+- **Sequencing rules**: "Always run tests after editing" / "Build before deploy"
+- **Tool heuristics**: "Use `grep_search` for exact strings, `semantic_search` for concepts"
+- **Known pitfalls**: "The CI config uses tabs not spaces" / "Python 3.10 minimum"
+
+**Output targets** (pick one or more):
+- `AGENTS.md` — VS Code Copilot agent instructions
+- `CLAUDE.md` — Claude Code agent instructions
+- `.github/copilot-instructions.md` — Copilot global instructions
+- `/memories/repo/` — Repository-scoped memory
+- Project-level `LESSONS.md` — Standalone lessons file
+
+**Example**:
+```markdown
+## Agent Lessons — Session abc123
+- Always activate venv before running Python: `source .venv/bin/activate`
+- This project uses `uv` not `pip` for package management
+- Run `python -m pytest tests/ -v` after any code change
+- The JSONL field is `tool_name`, not `name` — check actual schema before scripting
+```
 
 ### Reflection Tips
 
 - **Compare early vs late turns**: The agent often improves its approach — document what changed.
 - **Count wasted turns**: If turns 3-7 were all failed attempts, that's a significant inefficiency.
 - **Look for "aha moments"**: Key insights that changed the approach are valuable domain knowledge.
+- **Separate the audiences**: A lesson about "give the agent more context" is for the human; a lesson about "always check file exists before editing" is for the agent.
 
 ---
 
@@ -164,7 +211,63 @@ retrolens read <ID> --raw -t 1    # Raw JSON data
 
 ---
 
-## Workflow D: Cross-Session Pattern Mining
+## Workflow D: Validate a Custom Reader / Parser
+
+**Goal**: Ensure a new or modified log reader correctly extracts all fields.
+
+When building or modifying a log reader, always run a verification loop:
+
+### Step-by-Step
+
+1. **Parse a known session**:
+   ```bash
+   retrolens read <ID> --turn 1 --json > /tmp/parsed.json
+   ```
+
+2. **Get the raw source data** for comparison:
+   ```bash
+   retrolens read <ID> --turn 1 --raw > /tmp/raw.json
+   ```
+
+3. **Cross-check critical fields**:
+   ```bash
+   # Verify tool names are populated
+   cat /tmp/parsed.json | python3 -c "
+   import json, sys; d = json.load(sys.stdin)
+   tools = d['tool_calls']
+   empty = [t for t in tools if not t['tool_name']]
+   print(f'Tools: {len(tools)} total, {len(empty)} missing name')
+   assert len(empty) == 0, 'Bug: some tool_name fields are empty'
+   "
+   ```
+
+   Checklist:
+   - [ ] `tool_name` is populated (not empty string) for all tool calls
+   - [ ] `tool_calls` count matches number of tool invocations in raw data
+   - [ ] `files_touched` lists actual file paths
+   - [ ] `user_message` and `assistant_response` are non-empty
+   - [ ] Timestamps parse correctly (not null when raw data has them)
+   - [ ] `input_full` and `output_full` contain the actual data
+
+4. **Run the test suite**:
+   ```bash
+   python -m pytest tests/ -v
+   ```
+
+5. **Spot-check edge cases**:
+   - Turns with 0 tool calls
+   - Turns with very long tool outputs (>100KB)
+   - Sessions with only 1 turn
+   - Tool calls with nested/complex inputs
+
+> **Common pitfall**: Field names in RetroLens `--json` output (e.g., `tool_name`,
+> `tool_calls`) differ from the raw log format fields (e.g., VS Code uses `toolId`,
+> `toolInvocationSerialized`). Always check the actual schema when writing scripts
+> against the parsed output.
+
+---
+
+## Workflow E: Cross-Session Pattern Mining
 
 **Goal**: Review multiple sessions to find recurring patterns.
 
