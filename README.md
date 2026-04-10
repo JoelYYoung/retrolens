@@ -2,7 +2,9 @@
 
 **Learn from your AI agent conversations — extract workflows, generate executable agents, accumulate lessons learned.**
 
+[![PyPI](https://img.shields.io/pypi/v/retrolens)](https://pypi.org/project/retrolens/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![CI](https://github.com/JoelYYoung/retrolens/actions/workflows/ci.yml/badge.svg)](https://github.com/JoelYYoung/retrolens/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ## What is this?
