@@ -124,7 +124,7 @@ This is RetroLens's most important capability. It works as a **Skill** — a sta
 ┌──────────────────────────────────────────────┐
 │  Log Files                                   │
 │  VS Code Copilot: JSONL (incremental state)  │
-│  RetroLens Native: JSON                      │
+│  Claude Code: JSONL (event stream)           │
 └──────────────────────────────────────────────┘
 ```
 
@@ -303,9 +303,7 @@ Commands: scan, extract, reflect, read, show. Always use --json flag.
 | Source | Format | Log Location (macOS) |
 |--------|--------|---------------------|
 | VS Code Copilot Chat | JSONL (incremental state machine) | `~/Library/.../Code/User/workspaceStorage/*/GitHub.copilot-chat/debug-logs/*.jsonl` |
-| RetroLens Native | JSON | `./logs/sessions/` |
-
-> More formats (Claude Code, Cursor, etc.) are planned.
+| Claude Code | JSONL (event stream) | `~/.claude/projects/<encoded-path>/` |
 
 ## Project Structure
 
@@ -319,10 +317,9 @@ src/retrolens/
 ├── readers/
 │   ├── __init__.py             # BaseReader ABC + ReaderRegistry
 │   ├── vscode_copilot.py       # VS Code Copilot JSONL parser
-│   └── retrolens_native.py     # RetroLens native log reader
+│   └── claude_code.py          # Claude Code JSONL parser
 └── skills/
-    ├── SKILL.md                # ⭐ Agent skill document (core artifact)
-    └── templates/              # YAML, Python, Markdown templates
+    └── SKILL.md                # ⭐ Agent skill document (core artifact)
 tests/
 ├── conftest.py
 ├── test_models.py              # 20 tests

@@ -197,13 +197,6 @@ def create_default_registry() -> ReaderRegistry:
     except Exception:
         pass
 
-    # RetroLens native reader
-    try:
-        from .retrolens_native import RetroLensNativeReader
-        registry.register(RetroLensNativeReader())
-    except Exception:
-        pass
-
     return registry
 
 

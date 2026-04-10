@@ -20,7 +20,7 @@ def detect_format(path: Path) -> Optional[str]:
         path: A file (.jsonl) or directory to inspect.
 
     Returns:
-        A source_type string ('vscode', 'claude_code', 'retrolens') or None.
+        A source_type string ('vscode', 'claude_code') or None.
     """
     path = Path(path)
 
@@ -60,20 +60,6 @@ def detect_format_for_dir(path: Path) -> Optional[str]:
 
 def _detect_dir(path: Path) -> Optional[str]:
     """Detect format from directory structure."""
-    # RetroLens native: has index.json + sessions/ subdir
-    if (path / "index.json").exists() and (path / "sessions").is_dir():
-        return "retrolens"
-
-    # Also accept sessions/ directly
-    if path.name == "sessions":
-        # Check parent for index.json
-        if (path.parent / "index.json").exists():
-            return "retrolens"
-        # Or check if children are session dirs with metadata.json
-        for child in list(path.iterdir())[:3]:
-            if child.is_dir() and (child / "metadata.json").exists():
-                return "retrolens"
-
     return None
 
 

@@ -52,7 +52,86 @@ retrolens read <ID> --raw -t 1    # Raw JSON data
 
 ---
 
-## Workflow A: Build & Validate a Custom Reader ⭐⭐⭐
+## Workflow A: Discover & Connect to Logs ⭐⭐⭐
+
+**Goal**: Find where an AI assistant stores its conversation logs and point RetroLens at them.
+
+> AI assistant platforms change their log storage paths and naming conventions
+> across versions. **Never assume** a specific path — always **explore and verify**.
+
+### Step 1: Try Auto-Detection First
+
+```bash
+retrolens cfg set --path <candidate-dir>   # auto-detects format
+retrolens ls --json                        # see if sessions appear
+```
+
+If sessions appear, you're done. If not, proceed to manual discovery.
+
+### Step 2: Explore the Filesystem
+
+Search for conversation log files. Logs are almost always `.jsonl` files:
+
+```bash
+# Search for JSONL files in likely locations
+find ~ -name "*.jsonl" -path "*/chatSessions/*" -maxdepth 8 2>/dev/null | head -20
+find ~ -name "*.jsonl" -path "*/.claude/*" -maxdepth 6 2>/dev/null | head -20
+
+# Or use fd if available (faster)
+fd -e jsonl . ~ --max-depth 8 2>/dev/null | head -30
+```
+
+**Where to look** (hints — always verify):
+
+| Platform | Typical Location Pattern |
+|------|------|
+| **VS Code / Cursor / Windsurf** | User data dir → `workspaceStorage/<hash>/chatSessions/` (parent has `workspace.json` mapping hash → project) |
+| **Claude Code** | `~/.claude/projects/` with directory names derived from project paths |
+
+### Step 3: Identify the Format
+
+Read the first 3 lines of a candidate file:
+
+```bash
+head -3 <some-file.jsonl>
+```
+
+| If You See... | Format |
+|------|------|
+| `{"kind": 0, "v": {"sessionId": ...}}` | VS Code Copilot Chat (incremental state) |
+| `{"type": "user"\|"assistant", "parentUuid": ...}` | Claude Code (event chain) |
+| `{"role": "user"\|"assistant", "content": ...}` | Generic OpenAI-style (needs custom reader) |
+
+### Step 4: Connect
+
+```bash
+retrolens cfg set --path <log-directory>
+retrolens cfg set --source vscode          # override if auto-detect fails
+retrolens ls --json                        # verify
+```
+
+### Narrowing to a Specific Project
+
+Each platform maps project → logs differently. **Don't assume the mapping** — explore:
+
+```bash
+# VS Code: find workspace mapping files
+find <candidate-dir> -name "workspace.json" -maxdepth 3 2>/dev/null
+cat <some-workspace.json>   # read to understand the mapping
+```
+
+### Troubleshooting
+
+| Problem | Likely Cause | Approach |
+|------|------|------|
+| "No sessions found" | Wrong path, or platform changed storage layout | `find` for `.jsonl` files, sample and verify format |
+| Sessions found but 0 turns | Parser format mismatch | `head -3` the JSONL, compare with format indicators above |
+| Missing tool calls | Response format changed in new version | Sample raw data, check tool item structure |
+| Wrong project | Incorrect path mapping | Read a session and check content matches expected project |
+
+---
+
+## Workflow B: Build & Validate a Custom Reader ⭐⭐⭐
 
 **Goal**: Add support for a new agent log format (e.g., a new IDE, a custom agent framework).
 
@@ -86,7 +165,7 @@ class MyPlatformReader(BaseReader):
         ...
 
     def get_overview(self, session_id: str) -> models.SessionOverview:
-        """Parse session → metadata + per-turn summaries."""
+        """Parse session -> metadata + per-turn summaries."""
         ...
 
     def get_turn(self, session_id: str, turn_number: int) -> models.TurnDetail:
@@ -105,7 +184,7 @@ class MyPlatformReader(BaseReader):
 - `TurnDetail(turn_number, user_message, assistant_response, tool_calls, files_touched, commands_run, timestamp, model)`
 - `ToolCallDetail(index, tool_name, tool_id, input_preview, input_full, output_preview, output_full, success, invocation_message)`
 
-### Step 3: Validate ✅
+### Step 3: Validate
 
 **Always run a verification loop after implementing or modifying a reader.**
 
@@ -161,7 +240,7 @@ To contribute to retrolens core:
 
 ---
 
-## Workflow B: Analyze a Session ⭐⭐⭐
+## Workflow C: Analyze a Session ⭐⭐⭐
 
 **Goal**: Analyze a past session to understand what happened, identify phases, and extract the workflow.
 
@@ -208,13 +287,13 @@ To contribute to retrolens core:
 ### Tips
 
 - **Long sessions (>10 turns)**: Use sub-agents to process in batches.
-- **Repeated patterns**: Same tool sequence 3+ times → extract as a step.
-- **User corrections**: "No, do X instead" → the corrected path is the one to document.
+- **Repeated patterns**: Same tool sequence 3+ times -> extract as a step.
+- **User corrections**: "No, do X instead" -> the corrected path is the one to document.
 - **Error-recovery loops**: The final successful approach is what matters.
 
 ---
 
-## Workflow C: Reflect & Extract Lessons ⭐⭐⭐
+## Workflow D: Reflect & Extract Lessons ⭐⭐⭐
 
 **Goal**: Analyze a session from a learning perspective and produce actionable lessons for both humans and agents.
 
@@ -224,15 +303,15 @@ Read the session with `retrolens read <ID> --json` and analyze each turn through
 
 | Lens | What to Look For |
 |------|------|
-| 🔴 **Errors & Fixes** | Tool failures, user corrections, multiple retries |
-| 🟡 **Inefficiency** | File-by-file reads instead of grep, irrelevant exploration, repeated context gathering |
-| 🟢 **Effective Practices** | Smart tool selection, progressive drilling, clean commit points |
-| ⚠️ **Environment Traps** | API limits, network issues, version incompatibilities |
-| 📋 **Agent Directives** | Explicit rules the user stated, conventions discovered |
+| Red **Errors & Fixes** | Tool failures, user corrections, multiple retries |
+| Yellow **Inefficiency** | File-by-file reads instead of grep, irrelevant exploration, repeated context gathering |
+| Green **Effective Practices** | Smart tool selection, progressive drilling, clean commit points |
+| Warning **Environment Traps** | API limits, network issues, version incompatibilities |
+| Clipboard **Agent Directives** | Explicit rules the user stated, conventions discovered |
 
 ### Step 2: Categorize into Two Types
 
-#### 🧑 Human Lessons — Help humans interact with agents better
+#### Human Lessons — Help humans interact with agents better
 
 - **Prompt quality**: Which phrasing worked first try vs. caused confusion?
 - **Context provision**: What upfront context (files, docs, examples) saved turns?
@@ -246,11 +325,11 @@ Read the session with `retrolens read <ID> --json` and analyze each turn through
 ```markdown
 ## Human Lessons — Session abc123
 - Providing the test fixture path upfront saved 3 exploration turns
-- "Fix the bug" was too vague → "Fix the TypeError in auth.py line 42" worked first try
+- "Fix the bug" was too vague -> "Fix the TypeError in auth.py line 42" worked first try
 - Agent handles single-file refactors well but struggles with cross-module renames
 ```
 
-#### 🤖 Agent Lessons — Reusable directives for future sessions
+#### Agent Lessons — Reusable directives for future sessions
 
 - **Project conventions**: Coding style, naming, file structure, import order
 - **Environment gotchas**: Proxy settings, API quirks, version constraints
@@ -279,11 +358,11 @@ Read the session with `retrolens read <ID> --json` and analyze each turn through
 - **Compare early vs late turns**: The agent often improves — document what changed.
 - **Count wasted turns**: Turns 3-7 all failed? That's a significant inefficiency worth noting.
 - **Look for "aha moments"**: Insights that changed the approach are valuable domain knowledge.
-- **Separate audiences**: "Give the agent more context" → human lesson. "Always check file exists before editing" → agent lesson.
+- **Separate audiences**: "Give the agent more context" -> human lesson. "Always check file exists before editing" -> agent lesson.
 
 ---
 
-## Workflow D: Cross-Session Pattern Mining
+## Workflow E: Cross-Session Pattern Mining
 
 **Goal**: Review multiple sessions to find recurring patterns.
 
@@ -300,7 +379,7 @@ Read the session with `retrolens read <ID> --json` and analyze each turn through
 ### Data Flow
 
 ```
-cfg set → ls → pick session → read --json → agent analysis → output
+cfg set -> ls -> pick session -> read --json -> agent analysis -> output
 ```
 
 ### Key Rules
@@ -314,7 +393,7 @@ cfg set → ls → pick session → read --json → agent analysis → output
 
 3. **Progressive drilling** — don't read everything at once:
    ```
-   ls → overview → interesting turns → tool details
+   ls -> overview -> interesting turns -> tool details
    ```
 
 4. **For long sessions (>10 turns)**, use sub-agents to process in parallel:
@@ -332,15 +411,9 @@ cfg set → ls → pick session → read --json → agent analysis → output
 |------|------|------|
 | VS Code Copilot Chat | JSONL incremental state | `vscode` |
 | Claude Code | JSONL event stream | `claude_code` |
-| RetroLens Native | JSON files per request/response | `retrolens` |
 
-All platforms store sessions **per-project**. Use `retrolens cfg set --path <dir>` to point at a specific log directory.
-
-### Adding New Log Formats
-
-Follow **Workflow A** above. For filesystem exploration strategies to locate
-unknown log files, see the **Discovery Skill** (`DISCOVERY.md` bundled alongside
-this file).
+Custom readers can be added via `retrolens cfg set --reader ./my_reader.py`.
+Follow **Workflow B** to build one.
 
 ### Platform Integration
 

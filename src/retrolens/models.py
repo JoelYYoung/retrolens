@@ -22,7 +22,7 @@ class SessionInfo(BaseModel):
     """One row in the session list (scan output)."""
 
     session_id: str
-    source_type: str  # "vscode" | "retrolens" | "claude"
+    source_type: str  # "vscode" | "claude_code"
     date: Optional[datetime] = None
     model: str = ""
     title: str = ""
