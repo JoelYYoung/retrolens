@@ -342,6 +342,15 @@ Always use --json flag for structured output.
 | Source | Format | Location (macOS) |
 |------|------|------|
 | VS Code Copilot Chat | JSONL incremental state | `~/Library/Application Support/Code/User/workspaceStorage/*/chatSessions/*.jsonl` |
+| Claude Code | JSONL event stream | `~/.claude/projects/<encoded-path>/*.jsonl` |
 | RetroLens Native | JSON files per request/response | `./logs/sessions/` |
 
-More formats (Claude Code, generic JSONL) planned for future versions.
+All platforms store sessions **per-project**. Use `retrolens discover` to see available sources.
+
+### Adding New Log Formats
+
+For unsupported platforms, see the **Discovery Skill** (`DISCOVERY.md` bundled alongside this file). It teaches agents how to:
+1. Find log files on any platform
+2. Sample and identify the format
+3. Write a custom reader following the `BaseReader` interface
+4. Register it with the reader registry

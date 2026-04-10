@@ -190,6 +190,13 @@ def create_default_registry() -> ReaderRegistry:
     except Exception:
         pass
 
+    # Claude Code native reader
+    try:
+        from .claude_code import ClaudeCodeReader
+        registry.register(ClaudeCodeReader())
+    except Exception:
+        pass
+
     # RetroLens native reader
     try:
         from .retrolens_native import RetroLensNativeReader

@@ -71,7 +71,7 @@ def main(ctx: click.Context, skill_path: bool) -> None:
 # ── scan ────────────────────────────────────────────────────────────────────
 
 @main.command()
-@click.option("--source", "-s", default="auto", help="Log source: auto, vscode, retrolens")
+@click.option("--source", "-s", default="auto", help="Log source: auto, vscode, claude_code, retrolens")
 @click.option("--path", "-p", "log_path", default=None, help="Custom log directory path")
 @click.option("--limit", "-n", default=20, help="Max sessions to show")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
@@ -94,6 +94,171 @@ def scan(ctx: click.Context, source: str, log_path: Optional[str], limit: int, a
 
     sessions = sessions[:limit]
     click.echo(formatters.format_session_list(sessions, as_json=as_json))
+
+
+# ── discover ────────────────────────────────────────────────────────────────
+
+@main.command()
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.pass_context
+def discover(ctx: click.Context, as_json: bool) -> None:
+    """Discover available log sources and their locations.
+
+    Scans known locations for AI assistant conversation logs
+    and reports what was found. Useful for first-time setup and
+    debugging missing sessions.
+
+    \b
+    Examples:
+      retrolens discover           # Human-readable report
+      retrolens discover --json    # Machine-readable for agents
+    """
+    import platform as _platform
+
+    registry: ReaderRegistry = ctx.obj["registry"]
+
+    sources: list[dict] = []
+
+    for source_type in registry.source_types:
+        reader = registry.get(source_type)
+        try:
+            sessions = reader.scan()
+            sources.append({
+                "source_type": source_type,
+                "status": "active",
+                "sessions_count": len(sessions),
+                "latest_date": sessions[0].date.isoformat() if sessions and sessions[0].date else None,
+                "latest_model": sessions[0].model if sessions else None,
+            })
+        except Exception as e:
+            sources.append({
+                "source_type": source_type,
+                "status": "error",
+                "sessions_count": 0,
+                "error": str(e),
+            })
+
+    # Also report known paths for this OS
+    known_paths = _get_known_paths()
+
+    result = {
+        "platform": _platform.system(),
+        "registered_readers": registry.source_types,
+        "sources": sources,
+        "known_paths": known_paths,
+        "discovery_skill": str(Path(__file__).parent / "skills" / "DISCOVERY.md"),
+    }
+
+    if as_json:
+        click.echo(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+    else:
+        click.echo(f"{_C_BOLD}RetroLens — Log Source Discovery{_C_RESET}")
+        click.echo(f"Platform: {result['platform']}")
+        click.echo(f"Registered readers: {', '.join(result['registered_readers'])}")
+        click.echo()
+
+        for src in sources:
+            status_icon = "✅" if src["status"] == "active" and src["sessions_count"] > 0 else "⚠️" if src["status"] == "active" else "❌"
+            click.echo(f"  {status_icon} {src['source_type']}: {src['sessions_count']} sessions")
+            if src.get("latest_date"):
+                click.echo(f"     Latest: {src['latest_date']}")
+            if src.get("error"):
+                click.echo(f"     Error: {src['error']}")
+
+        click.echo()
+        click.echo(f"{_C_BOLD}Known log locations:{_C_RESET}")
+        for kp in known_paths:
+            exists_icon = "📁" if kp["exists"] else "  "
+            click.echo(f"  {exists_icon} {kp['platform']}: {kp['path']}")
+            if kp.get("sessions_count") is not None:
+                click.echo(f"      ({kp['sessions_count']} session files)")
+
+        click.echo()
+        click.echo(f"📖 Discovery skill: {result['discovery_skill']}")
+
+
+def _get_known_paths() -> list[dict]:
+    """Check known log locations and report what exists."""
+    import platform as _platform
+
+    home = Path.home()
+    system = _platform.system()
+    results = []
+
+    # VS Code
+    if system == "Darwin":
+        vscode_base = home / "Library" / "Application Support" / "Code" / "User" / "workspaceStorage"
+    elif system == "Linux":
+        vscode_base = home / ".config" / "Code" / "User" / "workspaceStorage"
+    elif system == "Windows":
+        vscode_base = home / "AppData" / "Roaming" / "Code" / "User" / "workspaceStorage"
+    else:
+        vscode_base = None
+
+    if vscode_base:
+        exists = vscode_base.exists()
+        session_count = None
+        if exists:
+            session_count = sum(1 for _ in vscode_base.rglob("chatSessions/*.jsonl"))
+        results.append({
+            "platform": "VS Code Copilot Chat",
+            "path": str(vscode_base / "*/chatSessions/"),
+            "exists": exists,
+            "sessions_count": session_count,
+        })
+
+    # Cursor (same structure as VS Code)
+    if system == "Darwin":
+        cursor_base = home / "Library" / "Application Support" / "Cursor" / "User" / "workspaceStorage"
+    elif system == "Linux":
+        cursor_base = home / ".config" / "Cursor" / "User" / "workspaceStorage"
+    else:
+        cursor_base = None
+
+    if cursor_base:
+        exists = cursor_base.exists()
+        session_count = None
+        if exists:
+            session_count = sum(1 for _ in cursor_base.rglob("chatSessions/*.jsonl"))
+        results.append({
+            "platform": "Cursor",
+            "path": str(cursor_base / "*/chatSessions/"),
+            "exists": exists,
+            "sessions_count": session_count,
+        })
+
+    # Claude Code
+    claude_projects = home / ".claude" / "projects"
+    exists = claude_projects.exists()
+    session_count = None
+    if exists:
+        session_count = sum(1 for _ in claude_projects.rglob("*.jsonl"))
+    results.append({
+        "platform": "Claude Code",
+        "path": str(claude_projects),
+        "exists": exists,
+        "sessions_count": session_count,
+    })
+
+    # RetroLens native (CWD)
+    native_logs = Path("logs")
+    exists = native_logs.exists() and (native_logs / "index.json").exists()
+    session_count = None
+    if exists:
+        try:
+            with open(native_logs / "index.json") as f:
+                data = json.load(f)
+            session_count = len(data.get("sessions", []))
+        except Exception:
+            pass
+    results.append({
+        "platform": "RetroLens Native",
+        "path": str(native_logs.resolve()),
+        "exists": exists,
+        "sessions_count": session_count,
+    })
+
+    return results
 
 
 # ── read ────────────────────────────────────────────────────────────────────

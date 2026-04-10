@@ -127,7 +127,8 @@ retrolens scan --limit 10 --json
 
 | Command | Purpose | Key Options |
 |---------|---------|-------------|
-| `scan` | Discover sessions | `--source vscode`, `--limit N`, `--json` |
+| `discover` | Find log sources | `--json` |
+| `scan` | Discover sessions | `--source {auto,vscode,claude_code,retrolens}`, `--limit N`, `--json` |
 | `read <ID>` | Browse session | `--turn N`, `--tool M`, `--turns 1-5`, `--diff 1,3`, `--json` |
 | `extract <ID>` | Extract workflow | `--max-turns N`, `--from-yaml`, `--langgraph`, `--json` |
 | `reflect <ID>` | Reflect on lessons | `--focus {all,errors,inefficiency,practices,traps}`, `--json` |
