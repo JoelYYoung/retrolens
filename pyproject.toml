@@ -36,9 +36,10 @@ dev = [
 retrolens = "retrolens.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/user/retrolens"
-Documentation = "https://github.com/user/retrolens#readme"
-Repository = "https://github.com/user/retrolens"
+Homepage = "https://github.com/JoelYYoung/retrolens"
+Documentation = "https://github.com/JoelYYoung/retrolens#readme"
+Repository = "https://github.com/JoelYYoung/retrolens"
+Issues = "https://github.com/JoelYYoung/retrolens/issues"
 
 [build-system]
 requires = ["hatchling"]
@@ -50,8 +51,8 @@ packages = ["src/retrolens"]
 [tool.hatch.build.targets.wheel.force-include]
 "skill" = "retrolens/skill"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=7.0.0",
     "ruff>=0.1.0",
 ]
