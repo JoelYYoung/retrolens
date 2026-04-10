@@ -35,8 +35,7 @@ pip install -e .
 
 Verify installation:
 ```bash
-retrolens --version    # 0.4.0
-retrolens --skill-path # prints SKILL.md path
+retrolens --version
 ```
 
 ## Quick Start: 5-Minute Walkthrough
@@ -265,7 +264,7 @@ Use `retrolens` CLI to analyze conversation logs and extract workflows.
 - Extract workflow: `retrolens extract <ID> --json`
 - Reflect on lessons: `retrolens reflect <ID> --json`
 - Browse session: `retrolens read <ID> --turn N`
-- Full guide: `retrolens --skill-path`
+
 Always use `--json` for structured output.
 ```
 
@@ -273,9 +272,8 @@ Always use `--json` for structured output.
 
 Add to `CLAUDE.md`:
 ```markdown
-Use `retrolens` CLI to extract workflows and lessons from conversation logs.
-Full SKILL.md path: retrolens --skill-path
-Key commands: scan, read, extract, reflect, show. Always use --json.
+Use `retrolens` CLI to navigate conversation logs.
+Key commands: cfg, ls, read. Always use --json.
 ```
 
 ### Cursor

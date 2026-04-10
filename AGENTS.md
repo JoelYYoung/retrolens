@@ -33,6 +33,5 @@ Use `retrolens` CLI to navigate conversation logs.
 - List sessions: `retrolens ls --json`
 - Browse session: `retrolens read <ID> --json`
 - Drill into turns: `retrolens read <ID> --turn N --json`
-- Full guide: `retrolens --skill-path`
 
 Always use `--json` for structured output when processing programmatically.

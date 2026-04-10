@@ -106,7 +106,5 @@ retrolens ls --limit 10 --json
 
 ## Full Reference
 
-For complete documentation including supported log formats and custom reader guide:
-```bash
-retrolens --skill-path  # prints path to bundled SKILL.md
-```
+For complete documentation including supported log formats and custom reader guide,
+see the bundled SKILL.md at `src/retrolens/skills/SKILL.md`.

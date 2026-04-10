@@ -15,11 +15,6 @@ Navigate AI agent conversation logs like a debugger. Point at a log directory, l
 pip install retrolens  # or: uv pip install retrolens
 ```
 
-Get the SKILL.md path for agent discovery:
-```bash
-retrolens --skill-path
-```
-
 ---
 
 ## Commands
@@ -222,7 +217,6 @@ Always use --json for structured output.
 **Claude Code**: Add to CLAUDE.md:
 ```
 Use `retrolens` CLI to navigate conversation logs.
-See: retrolens --skill-path
 ```
 
 ---

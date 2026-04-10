@@ -30,11 +30,6 @@ from .detect import detect_format_for_dir, describe_detection
 from .readers import BaseReader, ReaderRegistry, create_default_registry, load_custom_reader
 
 
-def _get_skill_path() -> str:
-    """Return absolute path to the bundled SKILL.md."""
-    return str(Path(__file__).parent / "skills" / "SKILL.md")
-
-
 def _ensure_configured() -> tuple[str, str]:
     """Ensure config has path and source. Returns (path, source).
 
@@ -91,17 +86,12 @@ def _get_reader_from_config(registry: ReaderRegistry) -> tuple[BaseReader, Path]
 # ── CLI Group ───────────────────────────────────────────────────────────────
 
 @click.group(invoke_without_command=True)
-@click.option("--skill-path", is_flag=True, help="Print the path to SKILL.md and exit")
 @click.version_option(version="0.5.1", prog_name="retrolens")
 @click.pass_context
-def main(ctx: click.Context, skill_path: bool) -> None:
+def main(ctx: click.Context) -> None:
     """RetroLens — navigate AI conversation logs like a debugger."""
     ctx.ensure_object(dict)
     ctx.obj["registry"] = create_default_registry()
-
-    if skill_path:
-        click.echo(_get_skill_path())
-        ctx.exit()
 
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
