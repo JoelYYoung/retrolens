@@ -15,7 +15,8 @@ Navigate AI agent conversation logs like a debugger. Point at a log directory, l
 ## Quick Start
 
 ```bash
-pip install retrolens  # or: uv pip install retrolens
+# Install the retrolens CLI tool (or run: bash scripts/setup.sh)
+pip install retrolens
 retrolens --version    # verify
 ```
 
