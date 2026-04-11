@@ -26,6 +26,7 @@ from typing import Optional
 import click
 
 from . import config, formatters
+from .__init__ import __version__
 from .detect import detect_format_for_dir
 from .readers import BaseReader, ReaderRegistry, create_default_registry, load_custom_reader
 
@@ -86,7 +87,7 @@ def _get_reader_from_config(registry: ReaderRegistry) -> tuple[BaseReader, Path]
 # ── CLI Group ───────────────────────────────────────────────────────────────
 
 @click.group(invoke_without_command=True)
-@click.version_option(version="0.5.1", prog_name="retrolens")
+@click.version_option(version=__version__, prog_name="retrolens")
 @click.pass_context
 def main(ctx: click.Context) -> None:
     """RetroLens — navigate AI conversation logs like a debugger."""
