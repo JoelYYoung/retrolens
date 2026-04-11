@@ -45,47 +45,95 @@ The CLI handles **only** what agents can't do well — parsing complex log forma
 └─────────────────────────────────────────────┘
 ```
 
-## Installation
+## Integrating this skill
+
+`retrolens` must be installed for agent use.
 
 ```bash
-pip install retrolens      # from PyPI
-# or for development:
-uv pip install -e .
+pip install retrolens
+retrolens --version
 ```
 
-Verify: `retrolens --version`
+Then add the skill to your agent.
+
+### Claude Code
+
+This repo ships a Claude marketplace that installs the `skill/` bundle as a plugin.
+
+**Step 1: Add marketplace**
+
+```bash
+/plugin marketplace add JoelYYoung/retrolens
+```
+
+**Step 2: Install the plugin**
+
+```bash
+/plugin install retrolens
+```
+
+Manual install alternative:
+
+```bash
+git clone https://github.com/JoelYYoung/retrolens.git
+cp -r retrolens/skill ~/.claude/plugins/retrolens
+/reload-plugins
+```
+
+### VS Code Copilot
+
+VS Code Copilot discovers skills from your repo at `.github/skills/<name>/SKILL.md`.
+
+From this repo, copy the skill into your target project:
+
+```bash
+mkdir -p .github/skills/retrolens
+cp skill/SKILL.md .github/skills/retrolens/SKILL.md
+```
+
+### Generic Skill-Based Agents
+
+If your agent supports local skill folders, copy the skill file:
+
+```bash
+cp skill/SKILL.md <your-agent-skills-dir>/retrolens/SKILL.md
+```
+
+Then prompt the agent to follow the workflows in `SKILL.md` while calling the `retrolens` CLI.
 
 ## Quick Start
 
-### 1. Point at your logs
+You can specify what to analyze and what artifact to produce.
 
-```bash
-retrolens cfg set --path /path/to/log-directory   # auto-detects format
-retrolens cfg show                                 # verify config
+Common workflows:
+
+### 1) Find sessions for this project
+
+```text
+Use the RetroLens skill to locate conversation logs for this repository and list the most recent 10 sessions (title, date, turn count).
 ```
 
-### 2. List sessions
+### 2) Add support for a new log format (custom reader)
 
-```bash
-retrolens ls
-```
-```
-  #  ID             Source  Date        Model              Turns  Title
-  ── ────────────── ──────  ────────    ────────────────── ────── ─────────────────────
-  1  fb48c98d-523.. vscode  2026-04-09  claude-opus-4.6    9      Workflow extraction
-  2  b1ab08d7-be1.. vscode  2026-04-01  claude-sonnet-4..  1      Traceback analysis
+This is only needed if your logs are **not** from VS Code Copilot or Claude Code.
+
+```text
+Use the RetroLens skill: logs for a new platform are in <LOG_DIR>. Sample the files, implement a custom reader, and validate it can parse turns and tool calls correctly.
 ```
 
-### 3. Navigate a session
+### 3) Analyze a specific session (ID/prefix: XXX)
 
-```bash
-retrolens read fb48c               # overview (prefix matching)
-retrolens read fb48c --turn 3      # turn 3 detail
-retrolens read fb48c -t 3 --tool 0 # first tool call in turn 3
-retrolens read fb48c --turns 1-5   # turns 1–5 summaries
-retrolens read fb48c --diff 1,5    # compare two turns
-retrolens read latest --json       # JSON output for agent consumption
+```text
+Use the RetroLens skill to analyze session XXX: summarize the goal, key pivots, failures and fixes, then write reusable directives to notes/session-XXX-lessons.md.
 ```
+
+### 4) Postmortem the latest session
+
+```text
+Use the RetroLens skill to postmortem the latest session and produce 5 human-facing lessons and 5 agent directives in notes/retrolens-latest.md.
+```
+
+Providing the project path, log directory (or platform: VS Code / Claude Code), and the desired output file name will speed things up.
 
 ---
 
@@ -102,24 +150,6 @@ RetroLens is designed to be used **by AI agents, not by humans directly**. The i
 | **Cross-Session Mining** | Compare multiple sessions for recurring patterns |
 
 The agent reads structured JSON from the CLI and does all reasoning, categorization, and writing itself.
-
-### Integrating the Skill
-
-**VS Code Copilot** — add to `AGENTS.md`:
-```markdown
-## Conversation Analysis Skill
-Use `retrolens` CLI to navigate conversation logs.
-- List sessions: `retrolens ls --json`
-- Browse session: `retrolens read <ID> --json`
-- Drill into turns: `retrolens read <ID> --turn N --json`
-Always use `--json` for structured output.
-```
-
-**Claude Code** — add to `CLAUDE.md`:
-```markdown
-Use `retrolens` CLI to navigate conversation logs.
-Key commands: cfg set (point at logs), ls (list), read (navigate). Always use --json.
-```
 
 ---
 
