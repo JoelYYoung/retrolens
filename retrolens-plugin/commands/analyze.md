@@ -2,7 +2,7 @@
 
 Analyze one or more sessions: drill from overview → turns → tool calls, map phases, and produce an analysis artifact.
 
-> **Full skill reference**: Read `retrolens-plugin/SKILL.md` → Workflow C for the detailed drill-down method.
+> **Full skill reference**: Read `./SKILL.md` → Workflow C for the detailed drill-down method.
 
 ## Prerequisites
 

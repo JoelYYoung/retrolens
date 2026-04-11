@@ -2,7 +2,7 @@
 
 Connect RetroLens to a log directory: choose a project scope, configure the log path, and verify the connection.
 
-> **Full skill reference**: Read `retrolens-plugin/SKILL.md` → Workflow A & B for detailed discovery and custom reader building.
+> **Full skill reference**: Read `./SKILL.md` → Workflow A & B for detailed discovery and custom reader building.
 
 ## Usage
 

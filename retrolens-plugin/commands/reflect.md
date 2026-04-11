@@ -2,7 +2,7 @@
 
 Extract reusable human lessons and agent directives from a session analysis.
 
-> **Full skill reference**: Read `retrolens-plugin/SKILL.md` → Workflow D for lesson formats and writing standards.
+> **Full skill reference**: Read `./SKILL.md` → Workflow D for lesson formats and writing standards.
 
 ## Prerequisites
 

@@ -2,7 +2,7 @@
 
 Discover where AI conversation logs are stored and get started with RetroLens.
 
-> **Full skill reference**: Read `retrolens-plugin/SKILL.md` for detailed workflows and data model.
+> **Full skill reference**: Read `./SKILL.md` for detailed workflows and data model.
 
 ## Usage
 
