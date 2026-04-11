@@ -1,0 +1,20 @@
+{
+	"name": "retrolens",
+	"owner": {
+		"name": "JoelYYoung"
+	},
+	"metadata": {
+		"description": "Navigate AI conversation logs like a debugger — discover sessions, drill into turns & tool calls, and extract lessons and workflows from past agent conversations."
+	},
+	"plugins": [
+		{
+			"name": "retrolens",
+			"source": "./skill",
+			"description": "Navigate AI conversation logs like a debugger — discover sessions, drill into turns & tool calls, and extract lessons and workflows from past agent conversations.",
+			"author": {
+				"name": "JoelYYoung"
+			},
+			"category": "development"
+		}
+	]
+}

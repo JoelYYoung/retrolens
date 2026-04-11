@@ -1,0 +1,7 @@
+{
+	"name": "retrolens",
+	"description": "Navigate AI conversation logs like a debugger. Use when analyzing past agent sessions, understanding what happened in a conversation, building custom log readers, or extracting workflows and lessons from session data.",
+	"author": {
+		"name": "JoelYYoung"
+	}
+}

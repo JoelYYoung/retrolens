@@ -74,13 +74,9 @@ If sessions appear, you're done. If not, proceed to manual discovery.
 
 ### Step 2: Explore the Filesystem
 
-Use the bundled discovery script or search manually:
+Search manually for JSONL log files (then validate candidates with `retrolens cfg set --path ...` + `retrolens ls --json`):
 
 ```bash
-# Option A: Use the bundled script
-bash scripts/find_logs.sh --project /path/to/project
-
-# Option B: Search manually for JSONL files
 find ~ -name "*.jsonl" -path "*/chatSessions/*" -maxdepth 8 2>/dev/null | head -20
 find ~ -name "*.jsonl" -path "*/.claude/*" -maxdepth 6 2>/dev/null | head -20
 ```
@@ -453,7 +449,6 @@ Key commands: cfg set, ls, read. Always use --json.
 
 | Path | Purpose |
 |------|---------|
-| `scripts/find_logs.sh` | Discover AI conversation log files on the system |
 | `scripts/sample_log.py` | Sample JSONL files and auto-detect log format |
 | `scripts/validate_reader.py` | Validate reader output with field-level checks |
 | [references/READER-API.md](references/READER-API.md) | BaseReader interface and data model reference |

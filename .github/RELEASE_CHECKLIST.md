@@ -17,7 +17,7 @@ Use this before publishing a new release.
 - [ ] README.md examples still work
 - [ ] skill/ package complete:
   - [ ] `SKILL.md`
-  - [ ] `scripts/` (setup.sh, find_logs.sh, sample_log.py, validate_reader.py)
+  - [ ] `scripts/` (setup.sh, sample_log.py, validate_reader.py)
   - [ ] `references/READER-API.md`
 
 ## PyPI Setup (First Time Only)

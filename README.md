@@ -190,7 +190,6 @@ Full guide: [`skill/SKILL.md`](skill/SKILL.md) → Workflow B, or [`skill/refere
 | Script | Purpose |
 |--------|---------|
 | `skill/scripts/setup.sh` | Install RetroLens and verify |
-| `skill/scripts/find_logs.sh` | Discover log directories on disk |
 | `skill/scripts/sample_log.py` | Sample & pretty-print a log file to identify format |
 | `skill/scripts/validate_reader.py` | Validate a reader against real log data |
 
