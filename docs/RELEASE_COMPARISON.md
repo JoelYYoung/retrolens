@@ -34,7 +34,7 @@
 ├─ bash scripts/release.sh 0.6.0
 │  ├─ 修改 pyproject.toml
 │  ├─ 修改 __init__.py
-│  ├─ 修改 skill/SKILL.md
+│  ├─ 修改 retrolens-plugin/SKILL.md
 │  ├─ git commit
 │  └─ git tag v0.6.0
 │

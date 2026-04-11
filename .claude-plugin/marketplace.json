@@ -9,7 +9,7 @@
 	"plugins": [
 		{
 			"name": "retrolens",
-			"source": "./skill",
+			"source": "./retrolens-plugin",
 			"description": "Navigate AI conversation logs like a debugger — discover sessions, drill into turns & tool calls, and extract lessons and workflows from past agent conversations.",
 			"author": {
 				"name": "JoelYYoung"

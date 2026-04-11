@@ -9,13 +9,13 @@ Use this before publishing a new release.
 - [ ] Version bumped in 3 places:
   - [ ] `pyproject.toml`
   - [ ] `src/retrolens/__init__.py`
-  - [ ] `skill/SKILL.md` frontmatter
+  - [ ] `retrolens-plugin/SKILL.md` frontmatter
 - [ ] CHANGELOG.md updated:
   - [ ] Move items from `[Unreleased]` to new version section
   - [ ] Add release date
   - [ ] Update comparison links at bottom
 - [ ] README.md examples still work
-- [ ] skill/ package complete:
+- [ ] retrolens-plugin/ package complete:
   - [ ] `SKILL.md`
   - [ ] `scripts/` (setup.sh, sample_log.py, validate_reader.py)
   - [ ] `references/READER-API.md`

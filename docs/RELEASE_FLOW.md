@@ -25,7 +25,7 @@
 │  ├─ ✅ 检查在 master 分支
 │  ├─ 📝 修改 pyproject.toml       → version = "0.6.0"
 │  ├─ 📝 修改 src/retrolens/__init__.py → __version__ = "0.6.0"
-│  ├─ 📝 修改 skill/SKILL.md       → version: "0.6.0"
+│  ├─ 📝 修改 retrolens-plugin/SKILL.md → version: "0.6.0"
 │  ├─ 💾 git commit -m "chore: bump version to 0.6.0"
 │  └─ 🏷️  git tag -a v0.6.0 -m "Release v0.6.0"
 │
@@ -66,8 +66,8 @@ GitHub 服务器 (Ubuntu 虚拟机)
 │
 └─ Job 4: create-release (依赖 test-install)
    ├─ 下载 dist/ artifact
-   ├─ 打包 skill/ 目录:
-   │  └─ zip -r retrolens-skill-v0.6.0.zip skill/*
+   ├─ 打包 retrolens-plugin/ 目录:
+   │  └─ zip -r retrolens-skill-v0.6.0.zip retrolens-plugin/*
    ├─ 从 CHANGELOG.md 提取本版本变更说明
    └─ 📋 创建 GitHub Release:
       ├─ retrolens-0.6.0-py3-none-any.whl
@@ -137,7 +137,7 @@ bash scripts/release.sh 0.6.0
 # 🚀 Preparing release v0.6.0
 # 📝 Updating pyproject.toml...
 # 📝 Updating src/retrolens/__init__.py...
-# 📝 Updating skill/SKILL.md...
+# 📝 Updating retrolens-plugin/SKILL.md...
 # 
 # === Changes ===
 # [显示 diff]
@@ -189,8 +189,8 @@ https://github.com/JoelYYoung/retrolens/actions
 # 手动方式（繁琐且容易出错）
 sed -i '' 's/version = "0.5.1"/version = "0.6.0"/' pyproject.toml
 sed -i '' 's/__version__ = "0.5.1"/__version__ = "0.6.0"/' src/retrolens/__init__.py
-sed -i '' 's/version: "0.5.1"/version: "0.6.0"/' skill/SKILL.md
-git add pyproject.toml src/retrolens/__init__.py skill/SKILL.md
+sed -i '' 's/version: "0.5.1"/version: "0.6.0"/' retrolens-plugin/SKILL.md
+git add pyproject.toml src/retrolens/__init__.py retrolens-plugin/SKILL.md
 git commit -m "chore: bump version to 0.6.0"
 git tag -a v0.6.0 -m "Release v0.6.0"
 git push origin master v0.6.0

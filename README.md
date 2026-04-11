@@ -11,7 +11,7 @@
 
 Every day you use AI agents (VS Code Copilot, Claude Code, Cursor…) to write code. Those conversation logs are full of reusable workflows and hard-won lessons — but they're locked inside opaque log files.
 
-**RetroLens** is a lightweight CLI + [Skill](skill/SKILL.md) that gives any general-purpose AI agent the ability to:
+**RetroLens** is a lightweight CLI + [Skill](retrolens-plugin/SKILL.md) that gives any general-purpose AI agent the ability to:
 
 1. 📂 **Discover** log sessions across platforms
 2. 🔍 **Navigate** sessions like a debugger — overview → turn → tool call
@@ -58,7 +58,7 @@ Then add the skill to your agent.
 
 ### Claude Code
 
-This repo ships a Claude marketplace that installs the `skill/` bundle as a plugin.
+This repo ships a Claude marketplace that installs the `retrolens-plugin/` bundle as a plugin.
 
 **Step 1: Add marketplace**
 
@@ -76,7 +76,7 @@ Manual install alternative:
 
 ```bash
 git clone https://github.com/JoelYYoung/retrolens.git
-cp -r retrolens/skill ~/.claude/plugins/retrolens
+cp -r retrolens/retrolens-plugin ~/.claude/plugins/retrolens
 /reload-plugins
 ```
 
@@ -88,7 +88,7 @@ From this repo, copy the skill into your target project:
 
 ```bash
 mkdir -p .github/skills/retrolens
-cp skill/SKILL.md .github/skills/retrolens/SKILL.md
+cp retrolens-plugin/SKILL.md .github/skills/retrolens/SKILL.md
 ```
 
 ### Generic Skill-Based Agents
@@ -96,7 +96,7 @@ cp skill/SKILL.md .github/skills/retrolens/SKILL.md
 If your agent supports local skill folders, copy the skill file:
 
 ```bash
-cp skill/SKILL.md <your-agent-skills-dir>/retrolens/SKILL.md
+cp retrolens-plugin/SKILL.md <your-agent-skills-dir>/retrolens/SKILL.md
 ```
 
 Then prompt the agent to follow the workflows in `SKILL.md` while calling the `retrolens` CLI.
@@ -139,7 +139,7 @@ Providing the project path, log directory (or platform: VS Code / Claude Code), 
 
 ## How It Works — the Skill Model
 
-RetroLens is designed to be used **by AI agents, not by humans directly**. The included [`SKILL.md`](skill/SKILL.md) teaches any general-purpose agent how to navigate and analyze conversation logs through a series of workflows:
+RetroLens is designed to be used **by AI agents, not by humans directly**. The included [`SKILL.md`](retrolens-plugin/SKILL.md) teaches any general-purpose agent how to navigate and analyze conversation logs through a series of workflows:
 
 | Workflow | What the Agent Does |
 |----------|---------------------|
@@ -192,7 +192,7 @@ retrolens read <ID> --json            # JSON output (for agents)
 |----------|-------------|--------|
 | VS Code Copilot Chat | `vscode` | JSONL (incremental state) |
 | Claude Code | `claude_code` | JSONL (event stream) |
-| Custom | any | Via custom reader (see [SKILL.md](skill/SKILL.md) Workflow B) |
+| Custom | any | Via custom reader (see [SKILL.md](retrolens-plugin/SKILL.md) Workflow B) |
 
 ## Custom Readers
 
@@ -213,15 +213,15 @@ class MyReader(BaseReader):
 
 Register it: `retrolens cfg set --reader ./my_reader.py`
 
-Full guide: [`skill/SKILL.md`](skill/SKILL.md) → Workflow B, or [`skill/references/READER-API.md`](skill/references/READER-API.md).
+Full guide: [`retrolens-plugin/SKILL.md`](retrolens-plugin/SKILL.md) → Workflow B, or [`retrolens-plugin/references/READER-API.md`](retrolens-plugin/references/READER-API.md).
 
 ## Bundled Scripts
 
 | Script | Purpose |
 |--------|---------|
-| `skill/scripts/setup.sh` | Install RetroLens and verify |
-| `skill/scripts/sample_log.py` | Sample & pretty-print a log file to identify format |
-| `skill/scripts/validate_reader.py` | Validate a reader against real log data |
+| `retrolens-plugin/scripts/setup.sh` | Install RetroLens and verify |
+| `retrolens-plugin/scripts/sample_log.py` | Sample & pretty-print a log file to identify format |
+| `retrolens-plugin/scripts/validate_reader.py` | Validate a reader against real log data |
 
 ## Project Structure
 
@@ -236,7 +236,7 @@ src/retrolens/
     ├── __init__.py         # BaseReader ABC + ReaderRegistry
     ├── vscode_copilot.py   # VS Code Copilot JSONL parser
     └── claude_code.py      # Claude Code JSONL parser
-skill/
+retrolens-plugin/
 ├── SKILL.md                # ⭐ Agent skill document
 ├── scripts/                # Helper scripts (setup, discovery, validation)
 └── references/             # Reader API docs
