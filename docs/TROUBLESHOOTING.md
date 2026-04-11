@@ -149,7 +149,7 @@ with zipfile.ZipFile('dist/retrolens-*.whl') as z:
 
 **Common causes**:
 - Missing `py.typed` marker
-- `skill/` not included (check `pyproject.toml` force-include)
+- `retrolens-plugin/` not included (check `pyproject.toml` `force-include`)
 - `.gitignore` excluding necessary files
 
 ---

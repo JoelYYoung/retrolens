@@ -49,7 +49,7 @@ build-backend = "hatchling.build"
 packages = ["src/retrolens"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"skill" = "retrolens/skill"
+"retrolens-plugin" = "retrolens-plugin"
 
 [dependency-groups]
 dev = [

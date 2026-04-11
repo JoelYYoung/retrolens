@@ -92,7 +92,7 @@ jobs:
         run: |
           # Create Claude Skill Hub package
           mkdir -p skill-package
-          cp -r skill/* skill-package/
+          cp -r retrolens-plugin/* skill-package/
           cd skill-package
           zip -r ../retrolens-skill-${{ github.ref_name }}.zip .
           cd ..
