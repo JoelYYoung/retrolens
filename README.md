@@ -1,6 +1,6 @@
 # RetroLens 🔬
 
-**Learn from your AI agent conversations — extract workflows, generate executable agents, accumulate lessons learned.**
+**A debugger for AI conversations — let any agent navigate, analyze, and learn from past chat sessions.**
 
 [![PyPI](https://img.shields.io/pypi/v/retrolens)](https://pypi.org/project/retrolens/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -9,341 +9,219 @@
 
 ## What is this?
 
-Every day you use AI agents like VS Code Copilot, Claude Code, or Cursor to write code. These conversation logs contain reusable workflows and hard-won lessons — but they're locked inside log files, inaccessible for reuse.
+Every day you use AI agents (VS Code Copilot, Claude Code, Cursor…) to write code. Those conversation logs are full of reusable workflows and hard-won lessons — but they're locked inside opaque log files.
 
-**RetroLens** provides a lightweight CLI + a SKILL.md guide that enables any general-purpose agent to:
+**RetroLens** is a lightweight CLI + [Skill](skill/SKILL.md) that gives any general-purpose AI agent the ability to:
 
-1. 📂 **Scan** logs → discover conversation sessions
-2. 🔍 **Browse** sessions → drill down like a debugger (overview → turn → tool call)
-3. 🧬 **Extract** workflows → identify phases, steps, decision points → output YAML DSL
-4. 🤖 **Generate** agents → auto-generate LangGraph executable code from YAML DSL
-5. 💡 **Reflect** on lessons → analyze errors, inefficiencies, best practices → output LESSONS.md
+1. 📂 **Discover** log sessions across platforms
+2. 🔍 **Navigate** sessions like a debugger — overview → turn → tool call
+3. 💡 **Analyze** what happened and extract lessons, workflows, and agent directives
+
+The CLI handles **only** what agents can't do well — parsing complex log formats and providing a structured traversal API. All analysis and writing is done by the agent itself, guided by `SKILL.md`.
 
 ```
-Conversation Logs → scan → read → extract → YAML DSL → LangGraph Agent
-                                    ↓
-                                 reflect → LESSONS.md / AGENTS.md
+┌─────────────────────────────────────────────┐
+│  AI Agent (Copilot / Claude / Cursor / ...) │
+│                                             │
+│  Reads SKILL.md → learns how to use CLI     │
+│  Calls CLI → gets structured JSON data      │
+│  Analyzes → uses its own LLM reasoning      │
+│  Writes → LESSONS.md, AGENTS.md, etc.       │
+└──────────────────┬──────────────────────────┘
+                   │ CLI calls
+                   ▼
+┌─────────────────────────────────────────────┐
+│  retrolens CLI                              │
+│                                             │
+│  cfg  → configure log path & source         │
+│  ls   → list sessions                       │
+│  read → drill into turns & tool calls       │
+└──────────────────┬──────────────────────────┘
+                   │ Parses log files
+                   ▼
+┌─────────────────────────────────────────────┐
+│  Log Files                                  │
+│  VS Code Copilot · Claude Code · Custom     │
+└─────────────────────────────────────────────┘
 ```
 
 ## Installation
 
 ```bash
-# Recommended: using uv
+pip install retrolens      # from PyPI
+# or for development:
 uv pip install -e .
-
-# Or using pip
-pip install -e .
 ```
 
-Verify installation:
-```bash
-retrolens --version
-```
+Verify: `retrolens --version`
 
-## Quick Start: 5-Minute Walkthrough
+## Quick Start
 
-### 1. Scan your VS Code conversation logs
+### 1. Point at your logs
 
 ```bash
-retrolens scan
-```
-```
-Found 5 session(s):
-
-  #    ID             Source     Date         Model                  Turns  Title
-  ──── ────────────── ────────── ──────────── ────────────────────── ────── ──────
-  1    fb48c98d-523.. vscode     2026-04-09   claude-opus-4.6        9      Workflow extraction
-  2    b1ab08d7-be1.. vscode     2026-04-01   claude-sonnet-4..      1      Traceback analysis
+retrolens cfg set --path /path/to/log-directory   # auto-detects format
+retrolens cfg show                                 # verify config
 ```
 
-### 2. Browse a session
+### 2. List sessions
 
 ```bash
-retrolens read fb48c  # prefix matching works
+retrolens ls
 ```
 ```
-=== Session: fb48c98d-523 ===
-Total Turns: 9
-
-  #1   [User] The main goal of this project is...
-       [Tools: 568] findFiles, readFile, runSubagent...
-  #2   [User] I think it should be...
-       [Tools: 8] memory, readFile
-  ...
+  #  ID             Source  Date        Model              Turns  Title
+  ── ────────────── ──────  ────────    ────────────────── ────── ─────────────────────
+  1  fb48c98d-523.. vscode  2026-04-09  claude-opus-4.6    9      Workflow extraction
+  2  b1ab08d7-be1.. vscode  2026-04-01  claude-sonnet-4..  1      Traceback analysis
 ```
 
-### 3. Drill into a specific turn
+### 3. Navigate a session
 
 ```bash
-retrolens read fb48c --turn 5        # turn 5 details
-retrolens read fb48c -t 5 --tool 0   # first tool call in turn 5
-```
-
-### 4. Extract workflow digest
-
-```bash
-retrolens extract fb48c --json   # structured SessionDigest output
-```
-
-### 5. Reflect on lessons learned
-
-```bash
-retrolens reflect fb48c --focus errors --json   # focus on error analysis
+retrolens read fb48c               # overview (prefix matching)
+retrolens read fb48c --turn 3      # turn 3 detail
+retrolens read fb48c -t 3 --tool 0 # first tool call in turn 3
+retrolens read fb48c --turns 1-5   # turns 1–5 summaries
+retrolens read fb48c --diff 1,5    # compare two turns
+retrolens read latest --json       # JSON output for agent consumption
 ```
 
 ---
 
-## ⭐ Core Feature: Refine Workflows with SKILL
+## How It Works — the Skill Model
 
-This is RetroLens's most important capability. It works as a **Skill** — a standardized document that guides any general-purpose agent through analyzing conversation logs and distilling reusable workflows.
+RetroLens is designed to be used **by AI agents, not by humans directly**. The included [`SKILL.md`](skill/SKILL.md) teaches any general-purpose agent how to navigate and analyze conversation logs through a series of workflows:
 
-### How It Works
+| Workflow | What the Agent Does |
+|----------|---------------------|
+| **Discover & Connect** | Find log directories, auto-detect format, verify with `ls` |
+| **Build Custom Reader** | Implement a reader for unsupported log formats |
+| **Analyze a Session** | Progressive drill-down: `ls` → `read` → `read --turn` → `read --tool`, then map workflow phases |
+| **Reflect & Extract Lessons** | Categorize findings into human lessons and agent directives |
+| **Cross-Session Mining** | Compare multiple sessions for recurring patterns |
 
-```
-┌──────────────────────────────────────────────┐
-│  General Agent (VS Code Copilot / Claude...) │
-│                                              │
-│  Reads SKILL.md → knows how to use CLI tools │
-│  Calls CLI → gets structured log data        │
-│  Analyzes data → uses its own LLM reasoning  │
-│  Writes files → .retrolens/LESSONS.md etc.   │
-└──────────────────────────────────────────────┘
-         ▲                    │
-    SKILL.md guidance     CLI calls
-         │                    ▼
-┌──────────────────────────────────────────────┐
-│  retrolens CLI (lightweight)         │
-│                                              │
-│  scan    → discover log sessions             │
-│  read    → traverse session data             │
-│  extract → output SessionDigest (JSON)       │
-│  reflect → output SessionDigest + hints      │
-│  show    → view existing artifacts           │
-└──────────────────────────────────────────────┘
-         ▲
-    Parses log files
-         │
-┌──────────────────────────────────────────────┐
-│  Log Files                                   │
-│  VS Code Copilot: JSONL (incremental state)  │
-│  Claude Code: JSONL (event stream)           │
-└──────────────────────────────────────────────┘
-```
+The agent reads structured JSON from the CLI and does all reasoning, categorization, and writing itself.
 
-### Workflow A: Extract Workflow & Generate Agent
+### Integrating the Skill
 
-The core use case. Full pipeline:
-
-```bash
-# Step 1: Find the target session
-retrolens scan --json
-
-# Step 2: Get structured digest
-retrolens extract <ID> --json
-# Output includes: user messages, tools used, files touched, commands run per turn
-
-# Step 3: Agent analyzes the digest and identifies workflow phases
-#   Research phase    → read_file, semantic_search dominant
-#   Planning phase    → user discussion, agent asks questions
-#   Implementation    → create_file, replace_string dominant
-#   Testing phase     → run_in_terminal running tests
-#   Documentation     → writing .md files
-
-# Step 4: Agent writes analysis as YAML DSL
-#   → .retrolens/my-workflow.workflow.yaml
-
-# Step 5: Generate LangGraph code
-retrolens extract --from-yaml .retrolens/my-workflow.workflow.yaml --langgraph
-# → .retrolens/my_workflow_agent.py
-```
-
-Generated LangGraph code includes:
-- **TypedDict state class** — with phase field and custom variables
-- **Phase node functions** — one per workflow phase, with step comments
-- **Tool function stubs** — placeholder implementations for each tool used
-- **Phase router** — state-based phase transitions
-- **Graph builder** — StateGraph + edges + compilation
-- **Main entry point** — ready to run
-
-### Workflow B: Reflect & Extract Lessons Learned
-
-```bash
-# Get reflection digest (with analysis hints)
-retrolens reflect <ID> --focus errors --json
-
-# Agent analyzes across 5 dimensions:
-#   🔴 Errors & Fixes — tool call failures, user corrections
-#   🟡 Inefficiency Patterns — repeated operations, unnecessary exploration
-#   🟢 Effective Practices — correct tool selection, progressive exploration
-#   ⚠️  Environment Traps — API quotas, network issues, version compat
-#   📋 Agent Directives — explicit rules stated by the user
-
-# Agent writes results to:
-#   → .retrolens/LESSONS.md     (lessons learned)
-#   → AGENTS.md / CLAUDE.md     (persistent agent directives)
-```
-
-### Workflow C: Navigate Logs Like a Debugger
-
-```bash
-retrolens read <ID>               # overview of all turns
-retrolens read <ID> --turn 3      # turn 3 details
-retrolens read <ID> -t 3 --tool 2 # 3rd tool call in turn 3
-retrolens read <ID> --turns 1-5   # turns 1-5 comparison
-retrolens read <ID> --diff 1,5    # diff between turns 1 and 5
-```
-
-### Workflow D: Cross-Session Mining
-
-```bash
-# Scan all sessions
-retrolens scan --json
-
-# For each relevant session: extract + reflect
-for id in fb48c a1b2c d3e4f; do
-  retrolens extract $id --json
-  retrolens reflect $id --json
-done
-
-# Agent synthesizes findings across multiple sessions into consolidated lessons
-```
-
----
-
-## YAML Workflow DSL Format
-
-```yaml
-workflow:
-  name: "Bug Fix Workflow"
-  goal: "Fix a reported bug with tests"
-  inputs: ["Bug description", "Affected file path"]
-  outputs: ["Fixed code", "Updated tests"]
-
-  phases:
-    - name: Investigation
-      description: Read the affected code and understand the bug
-      entry_condition: Bug report received
-      exit_condition: Root cause identified
-      steps:
-        - description: Read the affected file
-          tools: [read_file]
-        - description: Analyze the code for the bug
-          decision: Is it a logic bug or data bug?
-
-    - name: Fix
-      description: Implement the fix
-      steps:
-        - description: Modify the code
-          tools: [replace_string_in_file]
-        - description: Add input validation
-          tools: [replace_string_in_file]
-
-    - name: Verification
-      description: Run tests to verify the fix
-      steps:
-        - description: Run test suite
-          tools: [run_in_terminal]
-        - description: Check for regressions
-          decision: All tests pass?
-
-  dependencies:
-    - "Fix requires Investigation results"
-    - "Verification requires Fix to be complete"
-```
-
----
-
-## Integrating the SKILL into Your Project
-
-RetroLens is designed as a **Skill** for any general-purpose agent. Here's how to integrate with each platform:
-
-### VS Code Copilot Chat
-
-Add to your project's `AGENTS.md`:
+**VS Code Copilot** — add to `AGENTS.md`:
 ```markdown
 ## Conversation Analysis Skill
-Use `retrolens` CLI to analyze conversation logs and extract workflows.
-- Extract workflow: `retrolens extract <ID> --json`
-- Reflect on lessons: `retrolens reflect <ID> --json`
-- Browse session: `retrolens read <ID> --turn N`
-
+Use `retrolens` CLI to navigate conversation logs.
+- List sessions: `retrolens ls --json`
+- Browse session: `retrolens read <ID> --json`
+- Drill into turns: `retrolens read <ID> --turn N --json`
 Always use `--json` for structured output.
 ```
 
-### Claude Code
-
-Add to `CLAUDE.md`:
+**Claude Code** — add to `CLAUDE.md`:
 ```markdown
 Use `retrolens` CLI to navigate conversation logs.
-Key commands: cfg, ls, read. Always use --json.
-```
-
-### Cursor
-
-Add to `.cursorrules`:
-```
-When reviewing past sessions, use the retrolens CLI.
-Commands: scan, extract, reflect, read, show. Always use --json flag.
+Key commands: cfg set (point at logs), ls (list), read (navigate). Always use --json.
 ```
 
 ---
 
-## CLI Command Reference
+## CLI Reference
 
-| Command | Purpose | Key Options |
-|---------|---------|-------------|
-| `scan` | Discover sessions | `--source vscode`, `--limit N`, `--json` |
-| `read <ID>` | Browse session | `--turn N`, `--tool M`, `--turns 1-5`, `--diff 1,3`, `--raw`, `--json` |
-| `extract <ID>` | Extract workflow digest | `--max-turns N`, `--from-yaml <file>`, `--langgraph`, `--json` |
-| `reflect <ID>` | Reflect on lessons | `--focus {all,errors,inefficiency,practices,traps}`, `--json` |
-| `show` | View existing artifacts | `--type {all,lessons,workflow}`, `--dir <path>`, `--json` |
+### `cfg` — Configure Working State
 
-> **Tip**: Session IDs support prefix matching (e.g., `fb48c` matches `fb48c98d-5233-...`) and the `latest` keyword.
+```bash
+retrolens cfg set --path <dir>        # Set log directory (auto-detects format)
+retrolens cfg set --source vscode     # Override detected source type
+retrolens cfg set --reader ./r.py     # Register a custom reader
+retrolens cfg show                    # Show current config
+retrolens cfg clear                   # Reset
+```
 
-## Supported Log Formats
+### `ls` — List Sessions
 
-| Source | Format | Log Location (macOS) |
-|--------|--------|---------------------|
-| VS Code Copilot Chat | JSONL (incremental state machine) | `~/Library/.../Code/User/workspaceStorage/*/GitHub.copilot-chat/debug-logs/*.jsonl` |
-| Claude Code | JSONL (event stream) | `~/.claude/projects/<encoded-path>/` |
+```bash
+retrolens ls                          # List sessions (default: 20)
+retrolens ls --limit 50 --json        # JSON output, up to 50
+```
+
+### `read` — Navigate Session Data
+
+```bash
+retrolens read <ID>                   # Session overview
+retrolens read <ID> --turn N          # Turn N detail
+retrolens read <ID> -t N --tool M     # Tool call M in turn N
+retrolens read <ID> --turns 1-5       # Range of turn summaries
+retrolens read <ID> --diff 1,3        # Compare two turns
+retrolens read <ID> --raw -t N        # Raw JSON data for a turn
+retrolens read <ID> --json            # JSON output (for agents)
+```
+
+`<ID>` can be a full UUID, a prefix (e.g. `fb48c`), or `latest`.
+
+## Supported Formats
+
+| Platform | Source Type | Format |
+|----------|-------------|--------|
+| VS Code Copilot Chat | `vscode` | JSONL (incremental state) |
+| Claude Code | `claude_code` | JSONL (event stream) |
+| Custom | any | Via custom reader (see [SKILL.md](skill/SKILL.md) Workflow B) |
+
+## Custom Readers
+
+For unsupported log formats, create a Python file that subclasses `BaseReader`:
+
+```python
+from pathlib import Path
+from retrolens.readers import BaseReader
+from retrolens import models
+
+class MyReader(BaseReader):
+    source_type = "myplatform"
+
+    def scan(self, path: Path | None = None) -> list[models.SessionInfo]: ...
+    def get_overview(self, session_id: str) -> models.SessionOverview: ...
+    def get_turn(self, session_id: str, turn_number: int) -> models.TurnDetail: ...
+```
+
+Register it: `retrolens cfg set --reader ./my_reader.py`
+
+Full guide: [`skill/SKILL.md`](skill/SKILL.md) → Workflow B, or [`skill/references/READER-API.md`](skill/references/READER-API.md).
+
+## Bundled Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `skill/scripts/setup.sh` | Install RetroLens and verify |
+| `skill/scripts/find_logs.sh` | Discover log directories on disk |
+| `skill/scripts/sample_log.py` | Sample & pretty-print a log file to identify format |
+| `skill/scripts/validate_reader.py` | Validate a reader against real log data |
 
 ## Project Structure
 
 ```
 src/retrolens/
-├── __init__.py                 # Version info
-├── cli.py                      # Click CLI (5 commands)
-├── models.py                   # Pydantic v2 data models (16+ models)
-├── formatters.py               # Text/JSON dual-mode output
-├── workflow_dsl.py             # YAML DSL serialization + LangGraph codegen
-├── readers/
-│   ├── __init__.py             # BaseReader ABC + ReaderRegistry
-│   ├── vscode_copilot.py       # VS Code Copilot JSONL parser
-│   └── claude_code.py          # Claude Code JSONL parser
-└── skills/
-    └── SKILL.md                # ⭐ Agent skill document (core artifact)
-tests/
-├── conftest.py
-├── test_models.py              # 20 tests
-├── test_workflow_dsl.py        # 38 tests
-├── test_readers.py             # 36 tests
-├── test_distill_cli.py         # 32 tests
-└── fixtures/                   # Test data
+├── cli.py                  # Click CLI (cfg, ls, read)
+├── config.py               # Persistent config state
+├── detect.py               # Log format auto-detection
+├── models.py               # Pydantic v2 data models
+├── formatters.py           # Text / JSON dual-mode output
+└── readers/
+    ├── __init__.py         # BaseReader ABC + ReaderRegistry
+    ├── vscode_copilot.py   # VS Code Copilot JSONL parser
+    └── claude_code.py      # Claude Code JSONL parser
+skill/
+├── SKILL.md                # ⭐ Agent skill document
+├── scripts/                # Helper scripts (setup, discovery, validation)
+└── references/             # Reader API docs
+tests/                      # 128 tests
 ```
 
 ## Development
 
 ```bash
-# Install dev dependencies
-uv pip install -e ".[dev]"
-
-# Run tests (126 tests)
-python -m pytest tests/ -v
-
-# Lint
-ruff check src/
+uv pip install -e ".[dev]"       # Install with dev deps
+python -m pytest tests/ -v       # Run tests
+ruff check src/                  # Lint
 ```
 
-## 📄 License
+## License
 
-MIT License — see [LICENSE](LICENSE)
+MIT — see [LICENSE](LICENSE)
