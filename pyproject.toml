@@ -48,9 +48,6 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/retrolens"]
 
-[tool.hatch.build.targets.wheel.force-include]
-"retrolens-plugin" = "retrolens-plugin"
-
 [dependency-groups]
 dev = [
     "pytest>=7.0.0",

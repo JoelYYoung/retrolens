@@ -12,6 +12,22 @@ metadata:
 
 Navigate AI agent conversation logs like a debugger. Point at a log directory, list sessions, then drill into turns, tool calls, and raw data.
 
+## Recommended Flow
+
+The typical workflow follows these steps. Each step has a corresponding command (for Claude Code) and a detailed workflow section below.
+
+```
+/retrolens         → Discover log locations, see what's available
+       ↓
+/retrolens:connect → Choose a project, connect to its logs, verify
+       ↓
+/retrolens:analyze → Pick session(s), drill into turns, map phases
+       ↓
+/retrolens:reflect → Extract human lessons + agent directives
+```
+
+For non-Claude-Code agents, follow the same flow using the Workflow sections (A → B/C → D) directly.
+
 ## Quick Start
 
 ```bash
@@ -22,7 +38,7 @@ retrolens --version    # verify
 
 ---
 
-## Commands
+## CLI Commands
 
 ### `cfg` — Set Working State (Do This First) ⭐
 
@@ -57,6 +73,8 @@ retrolens read <ID> --raw -t 1    # Raw JSON data
 ---
 
 ## Workflow A: Discover & Connect to Logs ⭐⭐⭐
+
+> Commands: `/retrolens` (discover) → `/retrolens:connect` (connect & verify)
 
 **Goal**: Find where an AI assistant stores its conversation logs and point RetroLens at them.
 
@@ -136,6 +154,8 @@ cat <some-workspace.json>   # read to understand the mapping
 ---
 
 ## Workflow B: Build & Validate a Custom Reader ⭐⭐⭐
+
+> Command: `/retrolens:connect --reader` (when format is unsupported)
 
 **Goal**: Add support for a new agent log format (e.g., a new IDE, a custom agent framework).
 
@@ -255,6 +275,8 @@ To contribute to retrolens core:
 
 ## Workflow C: Analyze a Session ⭐⭐⭐
 
+> Command: `/retrolens:analyze`
+
 **Goal**: Analyze a past session to understand what happened, identify phases, and extract the workflow.
 
 ### Step-by-Step
@@ -307,6 +329,8 @@ To contribute to retrolens core:
 ---
 
 ## Workflow D: Reflect & Extract Lessons ⭐⭐⭐
+
+> Command: `/retrolens:reflect`
 
 **Goal**: Analyze a session from a learning perspective and produce actionable lessons for both humans and agents.
 
