@@ -4,7 +4,7 @@ description: "Navigate AI conversation logs like a debugger. Use when analyzing 
 compatibility: "Requires Python >=3.10 and pip (or uv). Install with: pip install retrolens"
 metadata:
   author: JoelYYoung
-  version: "0.5.4"
+  version: "0.5.5"
   repository: "https://github.com/JoelYYoung/retrolens"
 ---
 
