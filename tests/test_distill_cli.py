@@ -45,9 +45,11 @@ def _mock_config(sample_jsonl_path: Path):
 
 class TestBasicCLI:
     def test_version(self, runner: CliRunner):
+        from retrolens import __version__
+
         result = runner.invoke(main, ["--version"])
         assert result.exit_code == 0
-        assert "0.5.1" in result.output
+        assert __version__ in result.output
 
     def test_help(self, runner: CliRunner):
         result = runner.invoke(main, ["--help"])
