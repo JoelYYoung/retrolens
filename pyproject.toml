@@ -1,6 +1,6 @@
 [project]
 name = "retrolens"
-version = "0.5.5"
+version = "0.5.6"
 description = "Debugger-style AI conversation log navigator — let any agent extract lessons and workflows from chat sessions"
 readme = "README.md"
 license = {text = "MIT"}
