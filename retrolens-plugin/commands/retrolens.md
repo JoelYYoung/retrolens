@@ -20,22 +20,30 @@ Discover where AI conversation logs are stored and get started with RetroLens.
 
 This is the **entry point** — it discovers log locations but does NOT automatically connect or analyze.
 
-### Step 1: Ensure retrolens is installed
+### Step 1: Set up the retrolens CLI tool
+
+Check whether `retrolens` is already installed:
 
 ```bash
-retrolens --version   # if not found: pip install retrolens
+retrolens --version
 ```
 
-### Step 2: Try auto-detection
+If the command is found, skip to Step 2.
 
-```bash
-retrolens cfg set --path <candidate-dir>
-retrolens ls --json
-```
+If **not found**, ask the user which option they prefer:
 
-If sessions appear, proceed to Step 4.
+1. **Already installed** — retrolens is installed but not on PATH. Ask the user where it is installed or how they installed it (e.g., which venv, conda env, or directory), then help activate the correct environment or adjust PATH.
+2. **Agent installs** — let the agent install it. Ask the user which method to use:
+   | Method | Command |
+   |--------|---------|
+   | pip | `pip install retrolens` |
+   | uv | `uv pip install retrolens` |
+   | pipx | `pipx install retrolens` |
 
-### Step 3: Manual filesystem search (if auto-detection fails)
+   Run the selected command and verify with `retrolens --version`.
+3. **Install manually** — the user will install it themselves. Provide the install options above for reference and wait for them to confirm it's ready.
+
+### Step 2: Manual filesystem search (if auto-detection fails)
 
 ```bash
 # VS Code / Cursor / Windsurf
@@ -50,7 +58,7 @@ find ~ -name "*.jsonl" -path "*/.claude/*" -maxdepth 6 2>/dev/null | head -20
 | VS Code / Cursor / Windsurf | `workspaceStorage/<hash>/chatSessions/` |
 | Claude Code | `~/.claude/projects/<path-derived-name>/` |
 
-### Step 4: Identify the format by sampling
+### Step 3: Identify the format by sampling
 
 ```bash
 head -3 <some-file.jsonl>
@@ -62,7 +70,7 @@ head -3 <some-file.jsonl>
 | `{"type": "user"\|"assistant", "parentUuid": …}` | `claude_code` |
 | Other JSON | Custom reader needed |
 
-### Step 5: Prompt user with next steps
+### Step 4: Prompt user with next steps
 
 **Do NOT auto-run `cfg set`.** Instead, present the discovered log directories and ask the user:
 

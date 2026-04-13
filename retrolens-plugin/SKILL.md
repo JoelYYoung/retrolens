@@ -30,11 +30,26 @@ For non-Claude-Code agents, follow the same flow using the Workflow sections (A 
 
 ## Quick Start
 
+First check whether retrolens is already installed:
+
 ```bash
-# Install the retrolens CLI tool (or run: bash scripts/setup.sh)
-pip install retrolens
-retrolens --version    # verify
+retrolens --version
 ```
+
+If the command is found, proceed to **CLI Commands** below.
+
+If **not found**, ask the user which option they prefer:
+
+1. **Already installed** — retrolens is installed but not on PATH. Ask the user where/how it was installed (e.g., which venv, conda env, or directory), then help activate the correct environment or adjust PATH.
+2. **Agent installs** — let the agent install it. Ask the user which method to use:
+   | Method | Command |
+   |--------|---------|
+   | pip | `pip install retrolens` |
+   | uv | `uv pip install retrolens` |
+   | pipx | `pipx install retrolens` |
+
+   Run the selected command and verify with `retrolens --version`.
+3. **Install manually** — the user will install it themselves. Provide the install options above for reference and wait for them to confirm it's ready.
 
 ---
 
@@ -81,16 +96,7 @@ retrolens read <ID> --raw -t 1    # Raw JSON data
 > AI assistant platforms change their log storage paths and naming conventions
 > across versions. **Never assume** a specific path — always **explore and verify**.
 
-### Step 1: Try Auto-Detection First
-
-```bash
-retrolens cfg set --path <candidate-dir>   # auto-detects format
-retrolens ls --json                        # see if sessions appear
-```
-
-If sessions appear, you're done. If not, proceed to manual discovery.
-
-### Step 2: Explore the Filesystem
+### Step 1: Explore the Filesystem
 
 Search manually for JSONL log files (then validate candidates with `retrolens cfg set --path ...` + `retrolens ls --json`):
 
@@ -106,7 +112,7 @@ find ~ -name "*.jsonl" -path "*/.claude/*" -maxdepth 6 2>/dev/null | head -20
 | **VS Code / Cursor / Windsurf** | User data dir → `workspaceStorage/<hash>/chatSessions/` (parent has `workspace.json` mapping hash → project) |
 | **Claude Code** | `~/.claude/projects/` with directory names derived from project paths |
 
-### Step 3: Identify the Format
+### Step 2: Identify the Format
 
 Sample a candidate file to identify its format:
 
@@ -124,7 +130,7 @@ head -3 <some-file.jsonl>
 | `{"type": "user"\|"assistant", "parentUuid": ...}` | Claude Code (event chain) |
 | `{"role": "user"\|"assistant", "content": ...}` | Generic OpenAI-style (needs custom reader) |
 
-### Step 4: Connect
+### Step 3: Connect
 
 ```bash
 retrolens cfg set --path <log-directory>
